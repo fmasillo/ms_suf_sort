@@ -1,0 +1,2 @@
+/home/scratch-hdd/puglisi/max/SARS-Prefixes/SARS_1.fa.plain
+/home/scratch-hdd/puglisi/max/SARS-Prefixes/SARS_200000.fa.plain

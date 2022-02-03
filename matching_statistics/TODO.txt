@@ -1,0 +1,11 @@
+20 October, 2021
+----------------
+
+1.1. Determine which side of their pivot each suffix falls on (requires inspecting return values from binary search).
+Do this separately for maximal matches and all suffixes --- you need both sets of information.
+
+1.2. Sort all maximal matches. Their ranks will allow you to order suffixes in O(1) time.
+
+2.1 Use maximal matches to enumerate all suffixes. As you do so, use pivot information determined earlier (1.1) to
+place them in the appropriate part of the final file. You will need buffering obviously. After this go and sort
+each bucket with the order data structure obtained in 1.2.
