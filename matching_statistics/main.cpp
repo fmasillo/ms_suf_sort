@@ -11,7 +11,7 @@
 #include <iostream>
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
+    if (argc > 5) {
         fprintf(stderr, "usage: %s {file of filenames} {isMismatchingSymbolNeeded (1 - yes, 0 - no)} {output file}\n", argv[0]);
         exit(1);
     }
@@ -20,7 +20,9 @@ int main(int argc, char **argv) {
 //    double ttotal = getTime();
 
 //    char output_opt = argv[3][0];
-
+    std::cerr << argv[4] << "\n";
+    bool verbose = argv[4][0] == '1';
+    std::cerr << "verbose = " << verbose << "\n";
     FILE *infilesfile = fopen(argv[1], "r");
     if (!infilesfile) {
         fprintf(stderr, "Error opening file of filenames %s\n", argv[1]);
@@ -119,7 +121,7 @@ int main(int argc, char **argv) {
         
         fprintf(stderr, "---Factorizing sequence %d\n", seqno);
         double tlz = getTime();
-        totalNumFactors += lzFactorize(filename, seqno, argv[3]);
+        totalNumFactors += lzFactorize(filename, seqno, argv[3], verbose);
         fprintf(stderr, "---Time to lz factorize sequence %d = %.2f secs\n", seqno, getTime() - tlz);
         fprintf(stdout, "%.2f,%d,%u,", getTime() - tlz, totalNumFactors, n);
 //        totalBitsOut += bits_out;
