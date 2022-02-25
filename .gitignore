@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+# Executable for matching statistics
+matchstat
+
+# VSCode folder
+.vscode
+
+# File of names
+file_names.txt
+test_file_names.txt
