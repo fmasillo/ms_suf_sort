@@ -40,3 +40,5 @@ matchstat
 # File of names
 file_names.txt
 test_file_names.txt
+
+Makefile
