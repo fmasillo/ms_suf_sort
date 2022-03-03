@@ -459,6 +459,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          headA++;
          headB++;
          uint64_t counter = 0;
+         uint32_t nextStartA, nextStartB;
          while(headA->len == headB->len){
             sumCounter++;
             counter++;
@@ -474,8 +475,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
                denCounter++;
                return *(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + headB->len);
             }
-            uint32_t nextStartA = headA->start + headA->len;
-            uint32_t nextStartB = headB->start + headB->len;
+            nextStartA = headA->start + headA->len;
+            nextStartB = headB->start + headB->len;
             headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc + ndocPlusA], Match(nextStartA, 0, 0), 
                [](const Match a, const Match b){return a.start < b.start;}) - 1;
             headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc + ndocPlusB], Match(nextStartB, 0, 0), 
