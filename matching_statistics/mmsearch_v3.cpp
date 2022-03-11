@@ -450,9 +450,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
             return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
          }*/
          uint32_t nextMM = std::min(a.len, b.len);
-         if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
+         if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
             //diffLen++;
-            return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+            return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
          }
          if(a.len == 0){
             return a.doc < b.doc;
@@ -497,7 +497,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          //denCounter++;
          if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
          nextMM = std::min(headA->len, headB->len);
-         return *(_sx + headA->start + docBoundaries[a.doc - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1] + nextMM);
+         return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
        });
     }
 
@@ -512,9 +512,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
       }*/
       uint32_t nextMM = std::min(a.len, b.len);
-      if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
+      if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
          //diffLen++;
-         return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+         return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
       }
       if(a.len == 0){
          return a.doc < b.doc;
@@ -553,7 +553,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       //denCounter++;
       if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
       nextMM = std::min(headA->len, headB->len);
-      return *(_sx + headA->start + docBoundaries[a.doc - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1] + nextMM);
+      return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
     });
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

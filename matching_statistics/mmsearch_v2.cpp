@@ -392,7 +392,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(verbose) std::cerr << "doc " << ndoc << " firstHead.start,pos,len: " << firstHead.start << ","
        << firstHead.pos << "," << firstHead.len << "; secondHead.start,pos,len: " << secondHead.start << ","
        << secondHead.pos << "," << secondHead.len << "\n";
-       if(firstHead.len == 0){
+       if(secondHead.start == 0){
           if(verbose) std::cerr << "End of doc " << ndoc << "\n";
           MSGSA[prefSumBucketLengths[_ISA[firstHead.pos]]] = Suf(iCurrentDoc, ndoc, firstHead.len);
           iCurrentDoc++;
@@ -430,12 +430,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          if(a.len != b.len){
             diffLen++;
             uint32_t nextMM = std::min(a.len, b.len);
-            return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+            return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
          }
          sameLen++;
          uint64_t counter = 0;
-         while(*(_sx + a.idx + docBoundaries[a.doc - 1] + a.len + counter) == *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len + counter)){
-            if(*(_sx +a.idx + docBoundaries[a.doc - 1] + a.len + counter) == '$'){
+         while(_sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] == _sx[b.idx + docBoundaries[b.doc - 1] + b.len + counter]){
+            if(_sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] == '$'){
                sumCounter += counter;
                denCounter++;
                if(maxCounter < counter) maxCounter = counter;
@@ -445,7 +445,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          sumCounter += counter;
          denCounter++;
          if(maxCounter < counter) maxCounter = counter;
-         return *(_sx + a.idx + docBoundaries[a.doc - 1] + a.len + counter) < *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len + counter);
+         return _sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] < _sx[b.idx + docBoundaries[b.doc - 1] + b.len + counter];
        });
     }
     if(verbose) std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[_n-1] << " to " << _sn << "\n";
@@ -455,12 +455,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       if(a.len != b.len){
          diffLen++;
          uint32_t nextMM = std::min(a.len, b.len);
-         return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+         return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
       }
       sameLen++;
       uint64_t counter = 0;
-      while(*(_sx + a.idx + docBoundaries[a.doc - 1] + a.len + counter) == *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len + counter)){
-         if(*(_sx +a.idx + docBoundaries[a.doc - 1] + a.len + counter) == '$'){
+      while(_sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] == _sx[b.idx + docBoundaries[b.doc - 1] + b.len + counter]){
+         if(_sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] == '$'){
             sumCounter += counter;
             denCounter++;
             if(maxCounter < counter) maxCounter = counter;
@@ -471,7 +471,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       sumCounter += counter;
       denCounter++;
       if(maxCounter < counter) maxCounter = counter;
-      return *(_sx + a.idx + docBoundaries[a.doc - 1] + a.len + counter) < *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len + counter);
+      return _sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] < _sx[b.idx + docBoundaries[b.doc - 1] + b.len + counter];
     });
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

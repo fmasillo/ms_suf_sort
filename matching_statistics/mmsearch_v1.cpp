@@ -158,8 +158,8 @@ bool compareSuf(const Suf &a, const Suf &b){
       }
       //std::cerr << "same pos and len\n";
       uint64_t counter = 0;
-      while( *(_sx +a.idx + docBoundaries[a.doc - 1] + a.len + counter) == *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len + counter)){
-         if(*(_sx +a.idx + docBoundaries[a.doc - 1] + a.len + counter) == '$'){
+      while(_sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] == _sx[b.idx + docBoundaries[b.doc - 1] + b.len + counter]){
+         if(_sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] == '$'){
             sumCounter += counter;
             denCounter++;
             if(maxCounter < counter) maxCounter = counter;

@@ -172,9 +172,9 @@ bool sortHeadsSA(const Match &a, const Match &b){
    Match trueHeadB = phrases[b.start];
 
    uint32_t nextMM = std::min(trueHeadA.len, trueHeadB.len);
-   if (*(_sx + trueHeadA.start + docBoundaries[a.len - 1] + nextMM) != *(_sx + trueHeadB.start + docBoundaries[b.len - 1] + nextMM)){
+   if (_sx[trueHeadA.start + docBoundaries[a.len - 1] + nextMM] != _sx[trueHeadB.start + docBoundaries[b.len - 1] + nextMM]){
       //diffLen++;
-      return *(_sx + trueHeadA.start + docBoundaries[a.len - 1] + nextMM) < *(_sx + trueHeadB.start + docBoundaries[b.len - 1] + nextMM);
+      return _sx[trueHeadA.start + docBoundaries[a.len - 1] + nextMM] <_sx[trueHeadB.start + docBoundaries[b.len - 1] + nextMM];
    }
    if(trueHeadA.len == 0){
       return a.len < b.len;
@@ -211,7 +211,7 @@ bool sortHeadsSA(const Match &a, const Match &b){
    //denCounter++;
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
    nextMM = std::min(headA->len, headB->len);
-   return *(_sx + headA->start + docBoundaries[a.len - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.len - 1] + nextMM);
+   return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
 }
 
 bool compareSuf(const SufSStar &a, const SufSStar &b){
@@ -223,7 +223,7 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
    std::vector<Match>::iterator headB = phrases.begin() + b.head;
    if(headA->len - (a.idx - headA->start) != headB->len - (b.idx - headB->start)){
       uint32_t nextMM = std::min(headA->len - (a.idx - headA->start), headB->len - (b.idx - headB->start));
-      return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+      return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
    }
    else{
       //Match nextHeadA = a;

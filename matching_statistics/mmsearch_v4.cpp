@@ -257,9 +257,9 @@ inline std::vector<Match>::iterator getHead(Suf a){
 
 bool compareSufHeads(const Suf &a, const Suf &b){
    uint32_t nextMM = std::min(a.len, b.len);
-   if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
+   if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
       //diffLen++;
-      return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+      return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
    }
    if(a.len == 0){
       return a.doc < b.doc;
@@ -299,7 +299,7 @@ bool compareSufHeads(const Suf &a, const Suf &b){
    //denCounter++;
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
    nextMM = std::min(headA->len, headB->len);
-   return *(_sx + headA->start + docBoundaries[a.doc - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1] + nextMM);
+   return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
 }
 
 void solveTies(std::vector<Suf>::iterator beg, uint32_t offsetBeg, uint32_t offsetEnd){

@@ -156,8 +156,8 @@ bool compareSuf(const Suf &a, const Suf &b){
    std::vector<Match>::iterator headA = getHead(a);
    std::vector<Match>::iterator headB = getHead(b);
    uint32_t nextMM = std::min(headA->len - (a.idx - headA->start), headB->len - (b.idx - headB->start));
-   if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
-      return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+   if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
+      return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
    }
    if(headA->len == 0){
       return a.doc < b.doc;
@@ -169,9 +169,9 @@ bool compareSuf(const Suf &a, const Suf &b){
          return a.doc < b.doc;
       }
       if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
-      if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
-         return *(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len);
-      }
+      // if(_sx[headA->start + docBoundaries[a.doc - 1] + headA->len] != _sx[headB->start + docBoundaries[b.doc - 1] + headB->len]){
+      //    return _sx[headA->start + docBoundaries[a.doc - 1] + headA->len] < _sx[headB->start + docBoundaries[b.doc - 1] + headB->len];
+      // }
       uint32_t nextStartA = headA->start + headA->len;
       uint32_t nextStartB = headB->start + headB->len;
       headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], Match(nextStartA, 0, 0), 
@@ -184,7 +184,7 @@ bool compareSuf(const Suf &a, const Suf &b){
    }
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
    nextMM = std::min(headA->len, headB->len);
-   return *(_sx + headA->start + docBoundaries[a.doc - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1] + nextMM);
+   return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
 
 }
 
@@ -194,15 +194,15 @@ bool sortHeadsSA(const Match &a, const Match &b){
    Match trueHeadB = phrases[b.start];
 
    uint32_t nextMM = std::min(trueHeadA.len, trueHeadB.len);
-   if (*(_sx + trueHeadA.start + docBoundaries[a.len - 1] + nextMM) != *(_sx + trueHeadB.start + docBoundaries[b.len - 1] + nextMM)){
+   if (_sx[trueHeadA.start + docBoundaries[a.len - 1] + nextMM] != _sx[trueHeadB.start + docBoundaries[b.len - 1] + nextMM]){
       //diffLen++;
-      return *(_sx + trueHeadA.start + docBoundaries[a.len - 1] + nextMM) < *(_sx + trueHeadB.start + docBoundaries[b.len - 1] + nextMM);
+      return _sx[trueHeadA.start + docBoundaries[a.len - 1] + nextMM] < _sx[trueHeadB.start + docBoundaries[b.len - 1] + nextMM];
    }
-
+   if(trueHeadA.len == 0){
+      return a.len < b.len;
+   }
    std::vector<Match>::iterator headA = phrases.begin() + a.start;
    std::vector<Match>::iterator headB = phrases.begin() + b.start;
-   uint64_t ndocPlusA = 1*(headA->len == 0);
-   uint64_t ndocPlusB = 1*(headB->len == 0);
    headA++;
    headB++;
    uint64_t counter = 0;
@@ -214,16 +214,16 @@ bool sortHeadsSA(const Match &a, const Match &b){
       }
       if(headA->pos != headB->pos){
          return _ISA[headA->pos] < _ISA[headB->pos];}
-      if(*(_sx + headA->start + docBoundaries[a.len - 1 + ndocPlusA] + headA->len) != *(_sx + headB->start + docBoundaries[b.len - 1 + ndocPlusB] + headB->len)){
-         return *(_sx + headA->start + docBoundaries[a.len - 1 + ndocPlusA] + headA->len) < *(_sx + headB->start + docBoundaries[b.len - 1 + ndocPlusB] + headB->len);
-      }
+      // if(*(_sx + headA->start + docBoundaries[a.len - 1 + ndocPlusA] + headA->len) != *(_sx + headB->start + docBoundaries[b.len - 1 + ndocPlusB] + headB->len)){
+      //    return *(_sx + headA->start + docBoundaries[a.len - 1 + ndocPlusA] + headA->len) < *(_sx + headB->start + docBoundaries[b.len - 1 + ndocPlusB] + headB->len);
+      // }
       nextStartA = headA->start + headA->len;
       nextStartB = headB->start + headB->len;
       headNextStart.changeS(nextStartA);
-      headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len + ndocPlusA], headNextStart, 
+      headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len], headNextStart, 
          [](const Match first, const Match second){return first.start < second.start;}) - 1;
       headNextStart.changeS(nextStartB);
-      headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len + ndocPlusB], headNextStart, 
+      headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len], headNextStart, 
          [](const Match first, const Match second){return first.start < second.start;}) - 1;    
       if((headA->start - nextStartA) != (headB->start - nextStartB)){
          //denCounter++;
@@ -233,7 +233,7 @@ bool sortHeadsSA(const Match &a, const Match &b){
    //denCounter++;
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
    nextMM = std::min(headA->len, headB->len);
-   return *(_sx + headA->start + docBoundaries[a.len - 1 + ndocPlusA] + nextMM) < *(_sx + headB->start + docBoundaries[b.len - 1 + ndocPlusB] + nextMM);
+   return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
 }
 
 
@@ -528,9 +528,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
 
     std::cerr << "Start inducing L-types\n";
     for(uint64_t i = 0; i < _sn; i++){
-       if((beg + i)->idx != 0){
-          if(typeArray[(beg + i)->idx + docBoundaries[(beg + i)->doc - 1] - 1] == 1){
-             Suf lSuf = Suf((beg + i)->idx - 1, (beg + i)->doc);
+       if(beg[i].idx != 0){
+          if(typeArray[beg[i].idx + docBoundaries[beg[i].doc - 1] - 1] == 1){
+             Suf lSuf = Suf(beg[i].idx - 1, beg[i].doc);
              std::vector<Match>::iterator head = getHead(lSuf);
              MSGSA[prefSumBucketLengths[_ISA[head->pos + (lSuf.idx - head->start)]]++] = lSuf;
           }
@@ -548,9 +548,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "Start inducing S-types\n";
     for(uint64_t i = _sn - 1; i < _sn; i--){
        if(verbose) std::cerr << "i: " << i << " " << (beg + i)->idx << "," << (beg + i)->doc << "\n";
-       if((beg + i)->idx != 0){
-          if(typeArray[(beg + i)->idx + docBoundaries[(beg + i)->doc - 1] - 1] == 0){
-             Suf sSuf = Suf((beg + i)->idx - 1, (beg + i)->doc);
+       if(beg[i].idx != 0){
+          if(typeArray[beg[i].idx + docBoundaries[beg[i].doc - 1] - 1] == 0){
+             Suf sSuf = Suf(beg[i].idx - 1, beg[i].doc);
              std::vector<Match>::iterator head = getHead(sSuf);
              MSGSA[prefSumBucketLengthsCopy[_ISA[head->pos + (sSuf.idx - head->start)]]--] = sSuf;
           }
