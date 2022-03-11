@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <string.h>
 
 #include "mmsearch.h"
 #include "rmq_tree.h"
@@ -26,7 +27,7 @@ static uint32_t _n;
 static data_type *_sx;
 static filelength_type _sn;
 static bool _isMismatchingSymbolNeeded;
-static std::vector<uint32_t> doc_boundaries;
+static std::vector<uint32_t> docBoundaries;
 
 uint64_t _maxLCP = 0;
 uint64_t _numberOfShortFactors = 0;
@@ -146,19 +147,19 @@ bool comparePos(Suf a, Suf b){
 bool compareSuf(const Suf &a, const Suf &b){
    if(a.pos == b.pos){
       diffLen++;
-      //std::cerr << "pos eq, comparing by length (" << a.len << "," << b.len << ")" << _sx[a.idx + doc_boundaries[a.doc - 1] + a.len - 1]
-      //<< _sx[a.idx + doc_boundaries[a.doc - 1] + a.len] << _sx[a.idx + doc_boundaries[a.doc - 1] + a.len + 1]
-      //<< " VS " << _sx[b.idx + doc_boundaries[b.doc - 1] + b.len - 1]
-      //<< _sx[b.idx + doc_boundaries[b.doc - 1] + b.len] << _sx[b.idx + doc_boundaries[b.doc - 1] + b.len + 1] << "\n";
+      //std::cerr << "pos eq, comparing by length (" << a.len << "," << b.len << ")" << _sx[a.idx + docBoundaries[a.doc - 1] + a.len - 1]
+      //<< _sx[a.idx + docBoundaries[a.doc - 1] + a.len] << _sx[a.idx + docBoundaries[a.doc - 1] + a.len + 1]
+      //<< " VS " << _sx[b.idx + docBoundaries[b.doc - 1] + b.len - 1]
+      //<< _sx[b.idx + docBoundaries[b.doc - 1] + b.len] << _sx[b.idx + docBoundaries[b.doc - 1] + b.len + 1] << "\n";
       if(a.len != b.len){
          //std::cerr << "same pos diff len\n";
          uint32_t next_mm = std::min(a.len, b.len);
-         return _sx[a.idx + doc_boundaries[a.doc - 1] + next_mm] < _sx[b.idx + doc_boundaries[b.doc - 1] + next_mm];
+         return _sx[a.idx + docBoundaries[a.doc - 1] + next_mm] < _sx[b.idx + docBoundaries[b.doc - 1] + next_mm];
       }
       //std::cerr << "same pos and len\n";
       uint64_t counter = 0;
-      while( *(_sx +a.idx + doc_boundaries[a.doc - 1] + a.len + counter) == *(_sx + b.idx + doc_boundaries[b.doc - 1] + b.len + counter)){
-         if(*(_sx +a.idx + doc_boundaries[a.doc - 1] + a.len + counter) == '$'){
+      while( *(_sx +a.idx + docBoundaries[a.doc - 1] + a.len + counter) == *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len + counter)){
+         if(*(_sx +a.idx + docBoundaries[a.doc - 1] + a.len + counter) == '$'){
             sumCounter += counter;
             denCounter++;
             if(maxCounter < counter) maxCounter = counter;
@@ -170,7 +171,7 @@ bool compareSuf(const Suf &a, const Suf &b){
       denCounter++;
       if(maxCounter < counter) maxCounter = counter;
       //std::cerr << "solved after " << counter << "\n";
-      return _sx[a.idx + doc_boundaries[a.doc - 1] + a.len + counter] < _sx[b.idx + doc_boundaries[b.doc - 1] + b.len + counter];
+      return _sx[a.idx + docBoundaries[a.doc - 1] + a.len + counter] < _sx[b.idx + docBoundaries[b.doc - 1] + b.len + counter];
    }
    else{
       diffPos++;
@@ -273,7 +274,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
     int64_t prevLen = -1;
     int64_t lpfRuns = 0;
     uint64_t pos = 0, len = 0;
-    doc_boundaries.push_back(0);
+    docBoundaries.push_back(0);
     uint32_t ndoc = 1;
     uint32_t i_current_doc = 0;
     while(i < _sn) {
@@ -285,6 +286,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
         computeLZFactorAt(i, &pos, &len, leftB, rightB, match, isSmallerThanMatch, mismatchingSymbol);
         //[F] do we need to check w.r.t. the len or the pos? I think that if we check by length it could rise
         //a bug where by chance pos_{i-1} != pos_i and len_{i-1} - 1 = len_i which should be another entry
+        if(_sx[i] == '%'){
+           pos = _n;
+        }
         if((int64_t)len != prevLen-1){
            //phrases.push_back(std::make_pair(match,len));
            phrases.push_back(Match(i_current_doc, match, len));
@@ -307,7 +311,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
         i_current_doc++;
         if(len == 0){ //new doc found
            pos = (((uint32_t)_sx[i]) | (1<<31)); 
-           doc_boundaries.push_back(i_current_doc + doc_boundaries[ndoc-1]); 
+           docBoundaries.push_back(i_current_doc + docBoundaries[ndoc-1]); 
            i_current_doc = 0; 
            ndoc++;
          }
@@ -345,8 +349,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
         }
     }
     MSGSA.pop_back();
-    //std::cerr << "Printing doc_boundaries" << "\n";
-    //for(size_t i = 0; i < doc_boundaries.size(); i++){ std::cerr << doc_boundaries[i] << ", letter: " << _sx[doc_boundaries[i]] << "\n";}
+    //std::cerr << "Printing docBoundaries" << "\n";
+    //for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -358,36 +362,54 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     std::cerr << "Sorted in: " << sortTime << " milliseconds\n";
+
+    uint64_t err = 0;
     for(size_t i = 0; i < _sn; i++){
        if(verbose) std::cerr << "i=" << i << ": " << MSGSA[i].idx << " " << MSGSA[i].doc << " " << MSGSA[i].len <<"\n";
-       data_type *_slice_sx = _sx + MSGSA[i].idx + doc_boundaries[MSGSA[i].doc - 1];
+       data_type *_slice_sx = _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
        data_type *_slice_prev;
-       if(i>0){
-         _slice_prev = _sx + MSGSA[i-1].idx + doc_boundaries[MSGSA[i-1].doc - 1];
+       uint32_t maxIdx;
+       if(i > 0){
+         _slice_prev = _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
+         maxIdx = std::min(docBoundaries[MSGSA[i].doc] - (MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1]), docBoundaries[MSGSA[i-1].doc] - (MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1]));
        } 
        else{
           _slice_prev = _sx+_sn-1;
+          maxIdx = 1;
        }
        if(verbose) std::cerr << "suf_i " << _slice_sx;
        if(verbose) std::cerr << "suf_i-1 " << _slice_prev << "\n";
-       while(*_slice_sx && *_slice_prev){
-          //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-          //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-          if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
-          if(*_slice_sx != *_slice_prev){
-             if(*_slice_sx < *_slice_prev){
-               std::cerr << "PROBLEM with " << i-1 << " and " << i << "\n"; 
-               break;
-             }
-             else{
-                break;
-             }
-          }
+      //  while(*_slice_sx && *_slice_prev){
+      //     //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
+      //     //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
+      //     if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
+      //     if(*_slice_sx != *_slice_prev){
+      //        if(*_slice_sx < *_slice_prev){
+      //          //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+      //          if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
+      //          if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
+      //          if(verbose) std::cerr << "\n";
+      //          //std::cerr << *(_slice_prev) << "\n";
+      //          //std::cerr << *(_slice_sx) << "\n";
+      //          err++;
+      //          //if(err == 2){std::cerr << "error=2\n"; exit(1);}
+      //          break;
+      //        }
+      //        else{
+      //           break;
+      //        }
+      //     }
           
-          _slice_sx++;
-          _slice_prev++;
-       }
+      //     _slice_sx++;
+      //     _slice_prev++;
+      //  }
+       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+         err++;
+         //if(err) break;
+      }
     }
+    std::cerr << "err " << err << "\n";
     std::cerr << "maxCounter " << maxCounter << "\n";
     std::cerr << "meanCounter " << sumCounter/(denCounter+0.00000001) << "\n";
     std::cerr << "times it had to compare more than one char " << denCounter << "\n";

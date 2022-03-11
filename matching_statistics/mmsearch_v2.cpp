@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <string.h>
 
 #include "mmsearch.h"
 #include "rmq_tree.h"
@@ -291,6 +292,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
           data_type *_slice_sax = _x + _ISA[match];
           std::cerr << "R: " << _x << "--> pos: " << pos << " " << _slice_x << "--> match:" << _slice_sax << "\n";
         } 
+        if(_sx[i] == '%'){
+           pos = _n;
+        }
         //[F] do we need to check w.r.t. the len or the pos? I think that if we check by length it could rise
         //a bug where by chance pos_{i-1} != pos_i and len_{i-1} - 1 = len_i which should be another entry
         if((int64_t)pos != prevPos+1 || len == 0){
@@ -474,38 +478,53 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "Sorted in: " << sortTime << " milliseconds\n";
     std::cerr << "Checking GSA\n"; 
     
+    uint64_t err = 0;
     for(size_t i = 0; i < _sn; i++){
        if(verbose) std::cerr << "i=" << i << ": " << MSGSA[i].idx << " " << MSGSA[i].doc << " " << MSGSA[i].len <<"\n";
        data_type *_slice_sx = _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
        data_type *_slice_prev;
-       if(i>0){
+       uint32_t maxIdx;
+       if(i > 0){
          _slice_prev = _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
+         maxIdx = std::min(docBoundaries[MSGSA[i].doc] - (MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1]), docBoundaries[MSGSA[i-1].doc] - (MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1]));
        } 
        else{
           _slice_prev = _sx+_sn-1;
+          maxIdx = 1;
        }
        if(verbose) std::cerr << "suf_i " << _slice_sx;
        if(verbose) std::cerr << "suf_i-1 " << _slice_prev << "\n";
-       while(*_slice_sx && *_slice_prev){
-          //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-          //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-          if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
-          if(*_slice_sx != *_slice_prev){
-             if(*_slice_sx < *_slice_prev){
-               std::cerr << "PROBLEM with " << i-1 << " and " << i << "\n"; 
-               if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
-               if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
-               break;
-             }
-             else{
-                break;
-             }
-          }
+      //  while(*_slice_sx && *_slice_prev){
+      //     //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
+      //     //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
+      //     if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
+      //     if(*_slice_sx != *_slice_prev){
+      //        if(*_slice_sx < *_slice_prev){
+      //          //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+      //          if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
+      //          if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
+      //          if(verbose) std::cerr << "\n";
+      //          //std::cerr << *(_slice_prev) << "\n";
+      //          //std::cerr << *(_slice_sx) << "\n";
+      //          err++;
+      //          //if(err == 2){std::cerr << "error=2\n"; exit(1);}
+      //          break;
+      //        }
+      //        else{
+      //           break;
+      //        }
+      //     }
           
-          _slice_sx++;
-          _slice_prev++;
-       }
+      //     _slice_sx++;
+      //     _slice_prev++;
+      //  }
+       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+         err++;
+         //if(err) break;
+      }
     }
+    std::cerr << "n. errors " << err << "\n"; 
     std::cerr << "maxCounter " << maxCounter << "\n";
     std::cerr << "meanCounter " << sumCounter/(denCounter+0.00000001) << "\n";
     std::cerr << "times it had to compare more than one char " << denCounter << "\n";

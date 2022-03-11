@@ -272,7 +272,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     uint64_t mark = inc;
 
     std::vector<Suf> MSGSA;
-    MSGSA.reserve(_sn);
+    MSGSA.resize(_sn);
     //std::pair<uint32_t, uint32_t> *GSA = new std::pair<uint32_t, uint32_t>[_sn];
 
     std::cerr << "About to start main parsing loop...\n";
@@ -307,6 +307,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
           data_type *_slice_sax = _x + _ISA[match];
           std::cerr << "R: " << _x << "--> pos: " << pos << " " << _slice_x << "--> match:" << _slice_sax << "\n";
         } 
+        if(_sx[i] == '%'){
+           pos = _n;
+        }
         //[F] do we need to check w.r.t. the len or the pos? I think that if we check by length it could rise
         //a bug where by chance pos_{i-1} != pos_i and len_{i-1} - 1 = len_i which should be another entry
         if((int64_t)pos != prevPos+1 || len == 0){
@@ -439,13 +442,13 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "Start to sort bucket by bucket\n";
     std::vector<Suf>::iterator beg = MSGSA.begin();
     for(size_t i = 1; i < _n; i++){
-       if(verbose) std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[i-1] << " to " << prefSumBucketLengthsCopy[i] << "\n";
+       std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[i-1] << " to " << prefSumBucketLengthsCopy[i] << "\n";
        if(verbose) for(size_t x = prefSumBucketLengthsCopy[i-1]; x < prefSumBucketLengthsCopy[i]; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << "\n";}
        std::sort(beg + prefSumBucketLengthsCopy[i-1], beg + prefSumBucketLengthsCopy[i], 
        [](const Suf a, const Suf b){
          //bool tmpVerbose = false;
          //if(((a.idx == 13303 && a.doc == 2572) && (b.idx == 13305 && b.doc == 3022)) || ((b.idx == 13303 && b.doc == 2572) && (a.idx == 13305 && a.doc == 3022))) tmpVerbose = true;
-         if(a.len != b.len){
+         /*if(a.len != b.len){
             //if(tmpVerbose) std::cerr << "suf_a " << a.idx << " " << a.doc << " " << a.len << ": " << _sx + a.idx + docBoundaries[a.doc - 1];
             //if(tmpVerbose) std::cerr << "suf_b " << b.idx << " " << b.doc << " " << b.len << ": " << _sx + b.idx + docBoundaries[b.doc - 1];
             //diffLen++;
@@ -456,9 +459,17 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
             //if(tmpVerbose) std::cerr << "suf_a " << a.idx << " " << a.doc << " " << a.len << ": " << _sx + a.idx + docBoundaries[a.doc - 1];
             //if(tmpVerbose) std::cerr << "suf_b " << b.idx << " " << b.doc << " " << b.len << ": " << _sx + b.idx + docBoundaries[b.doc - 1];
             return *(_sx + a.idx + docBoundaries[a.doc - 1] + a.len) < *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len);
+         }*/
+         uint32_t nextMM = std::min(a.len, b.len);
+         if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
+            diffLen++;
+            return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
          }
          std::vector<Match>::iterator headA = getHead(a);
          std::vector<Match>::iterator headB = getHead(b);
+         if((headA->len == 0) & (headB->len == 0)){
+            return a.doc < b.doc;
+         }
          //if(tmpVerbose) std::cerr << "suf_a " << a.idx << " " << a.doc << ": " << _sx + a.idx + docBoundaries[a.doc - 1];
          //if(tmpVerbose) std::cerr << "suf_b " << b.idx << " " << b.doc << ": " << _sx + b.idx + docBoundaries[b.doc - 1];
          //if(tmpVerbose) std::cerr << "head_a " << headA->start << "," << headA->pos << "," << headA->len << "\n";
@@ -516,7 +527,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          }
          if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
          //if(tmpVerbose) std::cerr << "out of while\n";
-         uint32_t nextMM = std::min(headA->len, headB->len);
+         nextMM = std::min(headA->len, headB->len);
          //if(nextMM == 0) nextMM++;
          //if(tmpVerbose) std::cerr << *(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + nextMM);
          //if(tmpVerbose) std::cerr << *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + nextMM);
@@ -532,13 +543,19 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     [](const Suf a, const Suf b){
       //bool tmpVerbose = false;
       //if(((a.idx == 25892 && a.doc == 33) && (b.idx == 1713 && b.doc == 23)) || ((b.idx == 25892 && b.doc == 33) && (a.idx == 1713 && a.doc == 23))) tmpVerbose = true;
-      if(a.len != b.len){
+      /*if(a.len != b.len){
          //diffLen++;
          uint32_t nextMM = std::min(a.len, b.len);
          return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
       }
       if (*(_sx + a.idx + docBoundaries[a.doc - 1] + a.len) != *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len)){
          return *(_sx + a.idx + docBoundaries[a.doc - 1] + a.len) < *(_sx + b.idx + docBoundaries[b.doc - 1] + b.len);
+      }
+      */
+      uint32_t nextMM = std::min(a.len, b.len);
+      if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
+         diffLen++;
+         return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
       }
       std::vector<Match>::iterator headA = getHead(a);
       std::vector<Match>::iterator headB = getHead(b);
@@ -599,7 +616,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       }
       if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
       //if(tmpVerbose) std::cerr << "out of while\n";
-      uint32_t nextMM = std::min(headA->len, headB->len);
+      nextMM = std::min(headA->len, headB->len);
       //if(nextMM == 0) nextMM++;
       //if(tmpVerbose) std::cerr << _sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + nextMM;
       //if(tmpVerbose) std::cerr << _sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + nextMM;
@@ -615,38 +632,46 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(verbose) std::cerr << "i=" << i << ": " << MSGSA[i].idx << " " << MSGSA[i].doc << " " << MSGSA[i].len <<"\n";
        data_type *_slice_sx = _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
        data_type *_slice_prev;
-       if(i>0){
+       uint32_t maxIdx;
+       if(i > 0){
          _slice_prev = _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
+         maxIdx = std::min(docBoundaries[MSGSA[i].doc] - (MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1]), docBoundaries[MSGSA[i-1].doc] - (MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1]));
        } 
        else{
           _slice_prev = _sx+_sn-1;
+          maxIdx = 1;
        }
        if(verbose) std::cerr << "suf_i " << _slice_sx;
        if(verbose) std::cerr << "suf_i-1 " << _slice_prev << "\n";
-       while(*_slice_sx && *_slice_prev){
-          //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-          //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-          if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
-          if(*_slice_sx != *_slice_prev){
-             if(*_slice_sx < *_slice_prev){
-               //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
-               if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
-               if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
-               if(verbose) std::cerr << "\n";
-               //std::cerr << *(_slice_prev) << "\n";
-               //std::cerr << *(_slice_sx) << "\n";
-               err++;
-               //if(err == 2){std::cerr << "error=2\n"; exit(1);}
-               break;
-             }
-             else{
-                break;
-             }
-          }
+      //  while(*_slice_sx && *_slice_prev){
+      //     //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
+      //     //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
+      //     if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
+      //     if(*_slice_sx != *_slice_prev){
+      //        if(*_slice_sx < *_slice_prev){
+      //          //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+      //          if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
+      //          if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
+      //          if(verbose) std::cerr << "\n";
+      //          //std::cerr << *(_slice_prev) << "\n";
+      //          //std::cerr << *(_slice_sx) << "\n";
+      //          err++;
+      //          //if(err == 2){std::cerr << "error=2\n"; exit(1);}
+      //          break;
+      //        }
+      //        else{
+      //           break;
+      //        }
+      //     }
           
-          _slice_sx++;
-          _slice_prev++;
-       }
+      //     _slice_sx++;
+      //     _slice_prev++;
+      //  }
+       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+         err++;
+         //if(err) break;
+      }
     }
     std::cerr << "n. errors " << err << "\n"; 
     std::cerr << "maxCounter " << maxCounter << "\n";

@@ -308,6 +308,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
           data_type *_slice_sax = _x + _ISA[match];
           std::cerr << "R: " << _x << "--> pos: " << pos << " " << _slice_x << "--> match:" << _slice_sax << "\n";
         } 
+        if(_sx[i] == '%'){
+           pos = _n;
+        }
         if((int64_t)pos != prevPos+1 || len == 0){
            //phrases.push_back(std::make_pair(match,len));
            phrases.push_back(Match(iCurrentDoc, pos, len));
@@ -448,51 +451,53 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          }*/
          uint32_t nextMM = std::min(a.len, b.len);
          if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
-            diffLen++;
+            //diffLen++;
             return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
          }
-
+         if(a.len == 0){
+            return a.doc < b.doc;
+         }
          std::vector<Match>::iterator headA = getHead(a);
          std::vector<Match>::iterator headB = getHead(b);
-         uint64_t ndocPlusA = 1*(headA->len == 0);
-         uint64_t ndocPlusB = 1*(headB->len == 0);
          headA++;
          headB++;
-         uint64_t counter = 0;
+         //uint64_t counter = 0;
          uint32_t nextStartA, nextStartB;
          while(headA->len == headB->len){
-            sumCounter++;
-            counter++;
-            if(maxCounter < counter) maxCounter = counter;
+            //sumCounter++;
+            //counter++;
+            //if(maxCounter < counter) maxCounter = counter;
             if(headA->len == 0){
-               denCounter++;
+               //denCounter++;
                return a.doc < b.doc;
-               headA++; headB++; ndocPlusA++; ndocPlusB++; 
-               continue;
+               //headA++; headB++; ndocPlusA++; ndocPlusB++; 
+               //continue;
             }
-            if(headA->pos != headB->pos){denCounter++;return _ISA[headA->pos] < _ISA[headB->pos];}
-            if(*(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + headB->len)){
-               denCounter++;
-               return *(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + headB->len);
+            if(headA->pos != headB->pos){//denCounter++;
+               return _ISA[headA->pos] < _ISA[headB->pos];
             }
+            // if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
+            //    //denCounter++;
+            //    return *(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len);
+            // }
             nextStartA = headA->start + headA->len;
             nextStartB = headB->start + headB->len;
-            headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc + ndocPlusA], Match(nextStartA, 0, 0), 
+            headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], Match(nextStartA, 0, 0), 
                [](const Match a, const Match b){return a.start < b.start;}) - 1;
-            headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc + ndocPlusB], Match(nextStartB, 0, 0), 
+            headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], Match(nextStartB, 0, 0), 
                [](const Match a, const Match b){return a.start < b.start;}) - 1;           
             //headB = getHead(Suf(nextStartB, b.doc+ndocPlusB, 0));
             uint32_t diffA = (headA->start - nextStartA);
             uint32_t diffB = (headB->start - nextStartB);
             if(diffA != diffB){
-               denCounter++;
+               //denCounter++;
                return _ISA[headA->pos - diffA] < _ISA[headB->pos - diffB];
             }
          }
-         denCounter++;
+         //denCounter++;
          if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
          nextMM = std::min(headA->len, headB->len);
-         return *(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + nextMM);
+         return *(_sx + headA->start + docBoundaries[a.doc - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1] + nextMM);
        });
     }
 
@@ -508,47 +513,47 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       }*/
       uint32_t nextMM = std::min(a.len, b.len);
       if (*(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) != *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM)){
-         diffLen++;
+         //diffLen++;
          return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
       }
-
+      if(a.len == 0){
+         return a.doc < b.doc;
+      }
       std::vector<Match>::iterator headA = getHead(a);
       std::vector<Match>::iterator headB = getHead(b);
-      uint64_t ndocPlusA = 1*(headA->len == 0);
-      uint64_t ndocPlusB = 1*(headB->len == 0);
       headA++;
       headB++;
-      uint64_t counter = 0;
+      //uint64_t counter = 0;
       while(headA->len == headB->len){
-         sumCounter++;
-         counter++;
-         if(maxCounter < counter) maxCounter = counter;
+         //sumCounter++;
+         //counter++;
+         //if(maxCounter < counter) maxCounter = counter;
          if(headA->len == 0){
-            denCounter++;
+            //denCounter++;
             return a.doc < b.doc;
-            headA++; headB++; ndocPlusA++; ndocPlusB++; 
-            continue;
          }
-         if(headA->pos != headB->pos){denCounter++;return _ISA[headA->pos] < _ISA[headB->pos];}
-         if(*(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + headB->len)){
-            denCounter++;
-            return *(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + headB->len);
+         if(headA->pos != headB->pos){//denCounter++;
+            return _ISA[headA->pos] < _ISA[headB->pos];
          }
+         // if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
+         //    //denCounter++;
+         //    return *(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len);
+         // }
          uint32_t nextStartA = headA->start + headA->len;
          uint32_t nextStartB = headB->start + headB->len;
-         headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc + ndocPlusA], Match(nextStartA, 0, 0), 
+         headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], Match(nextStartA, 0, 0), 
             [](const Match a, const Match b){return a.start < b.start;}) - 1;
-         headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc + ndocPlusB], Match(nextStartB, 0, 0), 
+         headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], Match(nextStartB, 0, 0), 
             [](const Match a, const Match b){return a.start < b.start;}) - 1;    
          if((headA->start - nextStartA) != (headB->start - nextStartB)){
-            denCounter++;
+            //denCounter++;
             return _ISA[headA->pos - (headA->start - nextStartA)] < _ISA[headB->pos - (headB->start - nextStartB)];
          }
       }
-      denCounter++;
+      //denCounter++;
       if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
       nextMM = std::min(headA->len, headB->len);
-      return *(_sx + headA->start + docBoundaries[a.doc - 1 + ndocPlusA] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1 + ndocPlusB] + nextMM);
+      return *(_sx + headA->start + docBoundaries[a.doc - 1] + nextMM) < *(_sx + headB->start + docBoundaries[b.doc - 1] + nextMM);
     });
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -561,38 +566,46 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(verbose) std::cerr << "i=" << i << ": " << MSGSA[i].idx << " " << MSGSA[i].doc << " " << MSGSA[i].len <<"\n";
        data_type *_slice_sx = _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
        data_type *_slice_prev;
-       if(i>0){
+       uint32_t maxIdx;
+       if(i > 0){
          _slice_prev = _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
+         maxIdx = std::min(docBoundaries[MSGSA[i].doc] - (MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1]), docBoundaries[MSGSA[i-1].doc] - (MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1]));
        } 
        else{
           _slice_prev = _sx+_sn-1;
+          maxIdx = 1;
        }
        if(verbose) std::cerr << "suf_i " << _slice_sx;
        if(verbose) std::cerr << "suf_i-1 " << _slice_prev << "\n";
-       while(*_slice_sx && *_slice_prev){
-          //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-          //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-          if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
-          if(*_slice_sx != *_slice_prev){
-             if(*_slice_sx < *_slice_prev){
-               //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
-               if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
-               if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
-               if(verbose) std::cerr << "\n";
-               //std::cerr << *(_slice_prev) << "\n";
-               //std::cerr << *(_slice_sx) << "\n";
-               err++;
-               //if(err == 2){std::cerr << "error=2\n"; exit(1);}
-               break;
-             }
-             else{
-                break;
-             }
-          }
+      //  while(*_slice_sx && *_slice_prev){
+      //     //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
+      //     //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
+      //     if(*_slice_sx == '$' || *_slice_prev == '$'){break;}
+      //     if(*_slice_sx != *_slice_prev){
+      //        if(*_slice_sx < *_slice_prev){
+      //          //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+      //          if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
+      //          if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
+      //          if(verbose) std::cerr << "\n";
+      //          //std::cerr << *(_slice_prev) << "\n";
+      //          //std::cerr << *(_slice_sx) << "\n";
+      //          err++;
+      //          //if(err == 2){std::cerr << "error=2\n"; exit(1);}
+      //          break;
+      //        }
+      //        else{
+      //           break;
+      //        }
+      //     }
           
-          _slice_sx++;
-          _slice_prev++;
-       }
+      //     _slice_sx++;
+      //     _slice_prev++;
+      //  }
+      if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+         err++;
+         //if(err) break;
+      }
     }
     std::cerr << "n. errors " << err << "\n"; 
     std::cerr << "maxCounter " << maxCounter << "\n";
@@ -600,6 +613,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "times it had to compare more than one char " << denCounter << "\n";
     std::cerr << "times it had to compare only one char " << diffLen << "\n";
     
+    /*
     std::ofstream fout(strcat(outputfilename, ".bktLen.txt"), std::ios::out);
     fout << "Outputting bktLen" << "\n";
     for(uint32_t x = 0; x < _n; x++){ 
@@ -619,7 +633,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       foutLJ << phrases[x].len << "\n";
     }
     foutLJ.close();
-
+    */
     delete[] sx;
     delete[] bucketLengths;
     delete[] prefSumBucketLengths;
