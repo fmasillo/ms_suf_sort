@@ -688,6 +688,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "n. errors " << err << "\n"; 
     std::cerr << "maxCounter " << maxCounter << "\n";
     std::cerr << "meanCounter " << sumCounter/(denCounter+0.00000001) << "\n";
+    std::cerr << "times it had to compare only one char " << diffLen << "\n";
     std::cerr << "times it had to compare more than one char " << denCounter << "\n";
     std::cerr << "times it compared two suff in const time " << finalSuffCounter << "\n";
     //std::cerr << "n. of ties " << tiesCounter << "\n";
