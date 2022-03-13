@@ -83,14 +83,17 @@ struct SufSStar{
 
 struct Suf{
    uint32_t idx;
-   uint32_t doc;
+   int32_t doc;
    Suf(){idx = 0; doc = 0;}
    Suf(uint32_t i, uint32_t d){
       idx = i; doc = d;
    }
-   Suf(SufSStar s){
+   Suf(SufSStar &s){
       idx = s.idx; doc = s.doc;
    }
+   // void changeDocSign(){
+   //    doc = ~doc;
+   // }
 };
 
 struct SuffixComparator{
@@ -434,7 +437,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     prefSumBucketLengthsStar[_n] = nStar;
 
     std::vector<SufSStar> sStar;
-    sStar.reserve(nStar);
+    sStar.resize(nStar);
+    //SufSStar *sStar = new SufSStar[nStar];
 
     Match firstHead, secondHead;
     ndoc = 0;
@@ -451,14 +455,14 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        << secondHead.pos << "," << secondHead.len << "\n";
        if(secondHead.start == 0){
           if(verbose) std::cerr << "End of doc " << ndoc << "\n";
-          if(typeArray[firstHead.start + docBoundaries[ndoc - 1]] == 0 & typeArray[firstHead.start + docBoundaries[ndoc - 1] - 1] == 1){
+          if((typeArray[firstHead.start + docBoundaries[ndoc - 1]] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] - 1] == 1)){
             sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos]] + (bucketLengthsStar[_ISA[firstHead.pos]]--) - 1] = SufSStar(firstHead.start, ndoc, i);
           }
        }
        else{
           for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
              if(firstHead.start + docBoundaries[ndoc - 1] + start != 0){
-               if(typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0 & typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1){
+               if((typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1)){
                   sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos + start]] + (bucketLengthsStar[_ISA[firstHead.pos + start]]--) - 1] = SufSStar(firstHead.start + start, ndoc, i);
                }
              }
@@ -518,16 +522,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     }
     if(verbose) for(size_t x = 0; x < nStar; x++) {
        if(sStar[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
-       if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
+       if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << sStar[x].head << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
     }
 
-    exit(0);
 
-
-
-
-    uint32_t *prefSumBucketLengths = new uint32_t[_n + 1];
-    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n + 1];
+    uint64_t *prefSumBucketLengths = new uint64_t[_n + 1];
+    uint64_t *prefSumBucketLengthsCopy = new uint64_t[_n + 1];
     //uint32_t t_sum = 0;
     prefSumBucketLengths[0] = 0;
     prefSumBucketLengthsCopy[0] = 0;
@@ -535,129 +535,50 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     for(size_t i = 1; i < _n; i++){
        //t_sum += bucketLengths[i-1];
        prefSumBucketLengths[i] = prefSumBucketLengths[i-1] + bucketLengths[i-1];
-       if(verbose) std::cerr << prefSumBucketLengths[i] << "\n";
+       //if(verbose) std::cerr << prefSumBucketLengths[i] << "\n";
     }
     prefSumBucketLengths[_n] = _sn;
     for(size_t i = 0; i < _n; i++){
        prefSumBucketLengthsCopy[i] = prefSumBucketLengths[i+1]-1;
     }
 
-    //iCurrentDoc = 0;
-    std::vector<Suf> MSGSA;
-    MSGSA.resize(_sn);
-    ndoc = 0;
-    std::cerr << "phrases.size(): " << phrases.size() << "\n";
-    for(size_t i = 0; i < phrases.size() - 1; i++){
-       if(verbose) std::cerr << "i: " << i << "\n";
-       firstHead = phrases[i];
-       secondHead = phrases[i+1];
-       if(firstHead.start == 0){
-          ndoc++;
-          //iCurrentDoc = 0;
-       }
-       if(verbose) std::cerr << "doc " << ndoc << " firstHead.start,pos,len: " << firstHead.start << ","
-       << firstHead.pos << "," << firstHead.len << "; secondHead.start,pos,len: " << secondHead.start << ","
-       << secondHead.pos << "," << secondHead.len << "\n";
-       if(secondHead.start == 0){
-          if(verbose) std::cerr << "End of doc " << ndoc << "\n";
-          //if(typeArray[firstHead.start + docBoundaries[ndoc - 1]] == 0 & typeArray[firstHead.start + docBoundaries[ndoc - 1] - 1] == 1)
-          MSGSA[prefSumBucketLengths[_ISA[firstHead.pos]] + (bucketLengths[_ISA[firstHead.pos]]--) - 1] = Suf(firstHead.start, ndoc);
-       }
-       else{
-          for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
-             if(firstHead.start + docBoundaries[ndoc - 1] + start != 0){
-                if(typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0 & typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1){
-                   MSGSA[prefSumBucketLengths[_ISA[firstHead.pos + start]] + (bucketLengths[_ISA[firstHead.pos + start]]--) - 1] = Suf(firstHead.start + start, ndoc);
-                }
-             }
-             else{
-                std::cerr << "it was the first char\n";
-             }
-          }
-       }
-    }
-    MSGSA[prefSumBucketLengths[_ISA[secondHead.pos]] + (bucketLengths[_ISA[secondHead.pos]]--) - 1] = Suf(secondHead.start, ndoc);
-    if(verbose) for(size_t x = 0; x < _sn; x++) {
-       if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
-       if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
-    }
 
-    /*
-    uint32_t errHeads = 0;
-    for(size_t i = 1; i < headsSA.size(); i++){
-       if(verbose) std::cerr << "i=" << i << ": " << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len <<"\n";
-       data_type *_slice_sx = _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1];
-       data_type *_slice_prev;
-       uint32_t maxIdx;
-       if(i>0){
-         _slice_prev = _sx + phrases[headsSA[i-1].start].start + docBoundaries[headsSA[i-1].len - 1];
-         //maxIdx = std::min(docBoundaries[MSGSA[i].doc] - (MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1]), docBoundaries[MSGSA[i-1].doc] - (MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1]));
-       } 
-       else{
-          _slice_prev = _sx+_sn-1;
-          //maxIdx = 1;
-       }
-       if(verbose) std::cerr << "suf_i-1 " << _slice_prev;
-       if(verbose) std::cerr << "suf_i " << _slice_sx << "\n";
-       while(*_slice_sx && *_slice_prev){
-          //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-          //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-          if(*_slice_sx == '$' | *_slice_prev == '$'){break;}
-          if(*_slice_sx != *_slice_prev){
-             if(*_slice_sx < *_slice_prev){
-               if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << phrases[headsSA[i-1].start].start << "," << headsSA[i-1].len << ") and " << i << " (" << phrases[headsSA[i].start].start << "," << headsSA[i].len << ")\n"; 
-               if(verbose) std::cerr << _sx + phrases[headsSA[i-1].start].start + docBoundaries[headsSA[i-1].len - 1] << "\n";
-               if(verbose) std::cerr << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";
-               if(verbose) std::cerr << "\n";
-               //std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
-               //std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
-               errHeads++;
-               //if(err == 2){std::cerr << "error=2\n"; exit(1);}
-               break;
-             }
-             else{
-                break;
-             }
-          }
-          
-          _slice_sx++;
-          _slice_prev++;
-       }
-    }
-    std::cerr << "errHeads " << errHeads << "\n";
-    */
-
-    
-    //sort S*-suffixes
-    uint32_t errStar = 0;
-    std::cerr << "Starting to sort S*-suffixes\n";
-    std::vector<Suf>::iterator beg = MSGSA.begin();
-    for(size_t i = 1; i < _n + 1; i++){
-       if(verbose) std::cerr << i << " " << prefSumBucketLengths[i-1] + bucketLengths[i-1] << " " << prefSumBucketLengths[i] << "\n";
-       //std::sort(beg + prefSumBucketLengths[i-1] + bucketLengths[i-1], beg + prefSumBucketLengths[i], compareSuf);
-    }
-    if(verbose) std::cerr << "errStar: " << errStar << "\n";
-    //if(verbose) std::cerr << "Last bucket S*-suffixes\n";
-    //std::sort(beg + prefSumBucketLengths[_n-1] + bucketLengths[_n-1], beg + _sn, compareSuf);
-    if(verbose) for(size_t x = 0; x < _sn; x++) {
-       if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
-       if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
-    }
-
-    //induce whole GSA
-    if(verbose) for(uint64_t i = 0; i < _sn; i++){
-       std::cerr << _sx[i] << " type: " << typeArray[i] << "\n";
-    }
-    
+    std::cerr << "Going to convert types\n";
     //change back original positions in heads
     for(size_t i = 0; i < headsSA.size(); i++){
        phrases[i].changeP(headsSA[phrases[i].pos].pos);
     }
+    std::vector<Suf> MSGSA;
+    uint64_t diffLen;
+    //smallSStar.reserve(nStar);
+    //for(std::vector<SufSStar>::iterator it = sStar.begin(); it < sStar.end(); it++){
+    std::reverse(sStar.begin(), sStar.end());
+    for(uint32_t x = 1; x < _n; x++){
+       diffLen = (prefSumBucketLengths[x] - prefSumBucketLengths[x-1]) - (prefSumBucketLengthsStar[x] - prefSumBucketLengthsStar[x-1]);
+       for(uint64_t p = 0; p < diffLen; p++){
+          MSGSA.push_back(Suf());
+       }
+       for(uint32_t p = 0; p < (prefSumBucketLengthsStar[x] - prefSumBucketLengthsStar[x-1]); p++){
+          MSGSA.push_back(Suf(sStar[sStar.size() - 1]));
+          sStar.pop_back();
+       }
+    }
+
+    if(verbose) for(size_t x = 0; x < _sn; x++) {
+       if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
+       if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
+    }
+
+    delete[] prefSumBucketLengthsHeads;
+    delete[] prefSumBucketLengthsHeadsCopy;
+    delete[] prefSumBucketLengthsStar;
+    delete[] bucketLengthsHeads;
+    delete[] bucketLengthsStar;
     std::cerr << "Start inducing L-types\n";
     for(uint64_t i = 0; i < _sn; i++){
-       if(likely((beg + i)->idx != 0)){
-          if(typeArray[(beg + i)->idx + docBoundaries[(beg + i)->doc - 1] - 1] == 1){
-             Suf lSuf = Suf((beg + i)->idx - 1, (beg + i)->doc);
+       if(MSGSA[i].idx != 0){
+          if(typeArray[MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] - 1] == 1){
+             Suf lSuf = Suf(MSGSA[i].idx - 1, MSGSA[i].doc);
              std::vector<Match>::iterator head = getHead(lSuf);
              MSGSA[prefSumBucketLengths[_ISA[head->pos + (lSuf.idx - head->start)]]++] = lSuf;
           }
@@ -674,10 +595,10 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     
     std::cerr << "Start inducing S-types\n";
     for(uint64_t i = _sn - 1; i < _sn; i--){
-       if(verbose) std::cerr << "i: " << i << " " << (beg + i)->idx << "," << (beg + i)->doc << "\n";
-       if(likely((beg + i)->idx != 0)){
-          if(typeArray[(beg + i)->idx + docBoundaries[(beg + i)->doc - 1] - 1] == 0){
-             Suf sSuf = Suf((beg + i)->idx - 1, (beg + i)->doc);
+       if(verbose) std::cerr << "i: " << i << " " << MSGSA[i].idx << "," << MSGSA[i].doc << "\n";
+       if(MSGSA[i].idx != 0){
+          if(typeArray[MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] - 1] == 0){
+             Suf sSuf = Suf(MSGSA[i].idx - 1, MSGSA[i].doc);
              std::vector<Match>::iterator head = getHead(sSuf);
              MSGSA[prefSumBucketLengthsCopy[_ISA[head->pos + (sSuf.idx - head->start)]]--] = sSuf;
           }

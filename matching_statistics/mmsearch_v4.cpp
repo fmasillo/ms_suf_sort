@@ -43,6 +43,8 @@ int lenZeroFactors = 0;
 
 bool verbose;
 uint64_t maxCounter = 0;
+uint64_t denCounter = 0;
+uint64_t sumCounter = 0;
 
 struct Match{
    //uint64_t suf; //position of suffix in collection
@@ -256,11 +258,11 @@ inline std::vector<Match>::iterator getHead(Suf a){
 }
 
 bool compareSufHeads(const Suf &a, const Suf &b){
-   uint32_t nextMM = std::min(a.len, b.len);
-   if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
-      //diffLen++;
-      return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
-   }
+   // uint32_t nextMM = std::min(a.len, b.len);
+   // if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
+   //    diffLen++;
+   //    return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
+   // }
    if(a.len == 0){
       return a.doc < b.doc;
    }
@@ -268,19 +270,21 @@ bool compareSufHeads(const Suf &a, const Suf &b){
    std::vector<Match>::iterator headB = getHead(b);
    headA++;
    headB++;
-   //uint64_t counter = 0;
+   uint64_t counter = 0;
    while(headA->len == headB->len){
-      //sumCounter++;
-      //counter++;
-      //if(maxCounter < counter) maxCounter = counter;
+      sumCounter++;
+      counter++;
+      if(maxCounter < counter) maxCounter = counter;
       if(headA->len == 0){
-         //denCounter++;
+         denCounter++;
          return a.doc < b.doc;
          //headA++; headB++; ndocPlusA++; ndocPlusB++; 
          //continue;
       }
-      if(headA->pos != headB->pos){//denCounter++;
-         return _ISA[headA->pos] < _ISA[headB->pos];}
+      if(headA->pos != headB->pos){
+         denCounter++;
+         return _ISA[headA->pos] < _ISA[headB->pos];
+      }
       // if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
       //    //denCounter++;
       //    return *(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len);
@@ -292,13 +296,13 @@ bool compareSufHeads(const Suf &a, const Suf &b){
       headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], Match(nextStartB, 0, 0), 
          [](const Match a, const Match b){return a.start < b.start;}) - 1;    
       if((headA->start - nextStartA) != (headB->start - nextStartB)){
-         //denCounter++;
+         denCounter++;
          return _ISA[headA->pos - (headA->start - nextStartA)] < _ISA[headB->pos - (headB->start - nextStartB)];
       }
    }
-   //denCounter++;
+   denCounter++;
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
-   nextMM = std::min(headA->len, headB->len);
+   uint32_t nextMM = std::min(headA->len, headB->len);
    return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
 }
 
@@ -655,6 +659,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     }
     std::cerr << "n. errors " << err << "\n"; 
     std::cerr << "maxCounter " << maxCounter << "\n";
+    std::cerr << "meanCounter " << sumCounter/(denCounter+0.00000001) << "\n";
+    std::cerr << "times it had to compare more than one char " << denCounter << "\n";
     std::cerr << "n. of ties " << tiesCounter << "\n";
     delete[] sx;
     delete[] bucketLengths;
