@@ -235,18 +235,6 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
     _sx = sx;
     _sn = sn;
 
-    //Record how many suffixes of the collection come immediately before 
-    //each suffix of the reference in lex order. The final value in the 
-    //array suffixesBefore records how many suffixes come after the 
-    //lex-largest suffix of the reference
-    uint64_t *suffixesBefore = new uint64_t[_n+1];  //(int *) malloc(_n+1 * sizeof(int));
-    uint64_t *bucketStarts = new uint64_t[_n+1];  //(int *) malloc(_n+1 * sizeof(int));
-    for(uint32_t c = 0; c < _n+1; c++) {
-        suffixesBefore[c] = 0;
-        bucketStarts[c] = 0;
-    }
-
-
     std::vector<filelength_type> starts;
     std::vector<uint32_t> sources;
     std::vector<uint32_t> lengths;
@@ -298,7 +286,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
            if(len <= _maxLCP){ _numberOfShortFactors++; }
            numfactors++;
            //if(leftB == rightB){
-              suffixesBefore[match]++;
+           //   suffixesBefore[match]++;
            //}
         }
         prevLen = len;
@@ -353,6 +341,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool verbose
     //for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
 
     std::cerr << "Sorting MSGSA\n";
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == 'X' || _sx[i] == '%') _sx[i] = '$';}

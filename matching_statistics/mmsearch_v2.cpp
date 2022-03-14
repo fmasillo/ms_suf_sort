@@ -363,8 +363,10 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     if(verbose) for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
 
     std::cerr << "Start Sorting procedure for MSGSA\n";
+    t1 = std::chrono::high_resolution_clock::now();
     uint32_t *prefSumBucketLengths = new uint32_t[_n]();
     uint32_t t_sum = 0;
     if(verbose) std::cerr << prefSumBucketLengths[0] << "\n";
@@ -415,6 +417,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0) std::cerr << x << "\n";
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << "\n";
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
 
     //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == 'X' || _sx[i] == '%') _sx[i] = '$';}

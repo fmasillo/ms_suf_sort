@@ -383,6 +383,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     if(verbose) for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
 
     t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start Sorting procedure for MSGSA\n";
@@ -440,11 +441,15 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
 
     //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == '%' || _sx[i] == 'X') _sx[i] = '$';}
 
     //sort S*-suffixes
+    t1 = std::chrono::high_resolution_clock::now();
     uint32_t errStar = 0;
     std::cerr << "Starting to sort S*-suffixes\n";
     std::vector<Suf>::iterator beg = MSGSA.begin();
@@ -487,12 +492,16 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Sorted in: " << sortTime << " milliseconds\n";
 
     //induce whole GSA
     if(verbose) for(uint64_t i = 0; i < _sn; i++){
        std::cerr << _sx[i] << " type: " << typeArray[i] << "\n";
     }
 
+    t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start inducing L-types\n";
     for(uint64_t i = 0; i < _sn; i++){
        if(beg[i].idx != 0){
@@ -533,8 +542,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     }
 
     t2 = std::chrono::high_resolution_clock::now();
-    uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-    std::cerr << "Sorted in: " << sortTime << " milliseconds\n";
+    uint64_t induceTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Induced in: " << induceTime << " milliseconds\n";
 
     std::cerr << "Checking GSA\n"; 
     uint32_t err = 0;

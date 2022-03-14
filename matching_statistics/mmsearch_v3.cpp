@@ -378,10 +378,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     if(verbose) for(size_t i = 0; i < headBoundaries.size(); i++){ std::cerr << headBoundaries[i] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
 
+    t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start Sorting procedure for MSGSA\n";
     uint32_t *prefSumBucketLengths = new uint32_t[_n]();
-    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n];
+    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n + 1];
     uint32_t t_sum = 0;
     prefSumBucketLengthsCopy[0] = 0;
     if(verbose) std::cerr << prefSumBucketLengths[0] << "\n";
@@ -433,6 +435,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0) std::cerr << x << "\n";
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << "\n";
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
 
     //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == '%' || _sx[i] == 'X') _sx[i] = '$';}
@@ -440,7 +445,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start to sort bucket by bucket\n";
     std::vector<Suf>::iterator beg = MSGSA.begin();
-    for(size_t i = 1; i < _n; i++){
+    prefSumBucketLengthsCopy[_n] = _sn;
+    for(size_t i = 1; i < _n + 1; i++){
        if(verbose) std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[i-1] << " to " << prefSumBucketLengthsCopy[i] << "\n";
        if(verbose) for(size_t x = prefSumBucketLengthsCopy[i-1]; x < prefSumBucketLengthsCopy[i]; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << "\n";}
        std::sort(beg + prefSumBucketLengthsCopy[i-1], beg + prefSumBucketLengthsCopy[i], 
@@ -451,7 +457,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          }*/
          uint32_t nextMM = std::min(a.len, b.len);
          if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
-            //diffLen++;
+            diffLen++;
             return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
          }
          if(a.len == 0){
@@ -461,19 +467,18 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          std::vector<Match>::iterator headB = getHead(b);
          headA++;
          headB++;
-         //uint64_t counter = 0;
+         uint64_t counter = 0;
          uint32_t nextStartA, nextStartB;
          while(headA->len == headB->len){
-            //sumCounter++;
-            //counter++;
-            //if(maxCounter < counter) maxCounter = counter;
+            sumCounter++;
+            counter++;
+            if(maxCounter < counter) maxCounter = counter;
             if(headA->len == 0){
-               //denCounter++;
+               denCounter++;
                return a.doc < b.doc;
-               //headA++; headB++; ndocPlusA++; ndocPlusB++; 
-               //continue;
             }
-            if(headA->pos != headB->pos){//denCounter++;
+            if(headA->pos != headB->pos){
+               denCounter++;
                return _ISA[headA->pos] < _ISA[headB->pos];
             }
             // if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
@@ -490,11 +495,11 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
             uint32_t diffA = (headA->start - nextStartA);
             uint32_t diffB = (headB->start - nextStartB);
             if(diffA != diffB){
-               //denCounter++;
+               denCounter++;
                return _ISA[headA->pos - diffA] < _ISA[headB->pos - diffB];
             }
          }
-         //denCounter++;
+         denCounter++;
          if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
          nextMM = std::min(headA->len, headB->len);
          return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
@@ -502,59 +507,59 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     }
 
     //###############LAST BUCKET#################
-    std::cerr << "LAST BUCKET\n";
-    if(verbose) std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[_n-1] << " to " << _sn << "\n";
-    if(verbose) for(size_t x = prefSumBucketLengthsCopy[_n-1]; x < _sn; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << "\n";}
-    std::sort(beg + prefSumBucketLengthsCopy[_n-1], beg + _sn, 
-    [](const Suf a, const Suf b){
-      /*if(a.len != b.len){
-         uint32_t nextMM = std::min(a.len, b.len);
-         return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
-      }*/
-      uint32_t nextMM = std::min(a.len, b.len);
-      if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
-         //diffLen++;
-         return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
-      }
-      if(a.len == 0){
-         return a.doc < b.doc;
-      }
-      std::vector<Match>::iterator headA = getHead(a);
-      std::vector<Match>::iterator headB = getHead(b);
-      headA++;
-      headB++;
-      //uint64_t counter = 0;
-      while(headA->len == headB->len){
-         //sumCounter++;
-         //counter++;
-         //if(maxCounter < counter) maxCounter = counter;
-         if(headA->len == 0){
-            //denCounter++;
-            return a.doc < b.doc;
-         }
-         if(headA->pos != headB->pos){//denCounter++;
-            return _ISA[headA->pos] < _ISA[headB->pos];
-         }
-         // if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
-         //    //denCounter++;
-         //    return *(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len);
-         // }
-         uint32_t nextStartA = headA->start + headA->len;
-         uint32_t nextStartB = headB->start + headB->len;
-         headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], Match(nextStartA, 0, 0), 
-            [](const Match a, const Match b){return a.start < b.start;}) - 1;
-         headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], Match(nextStartB, 0, 0), 
-            [](const Match a, const Match b){return a.start < b.start;}) - 1;    
-         if((headA->start - nextStartA) != (headB->start - nextStartB)){
-            //denCounter++;
-            return _ISA[headA->pos - (headA->start - nextStartA)] < _ISA[headB->pos - (headB->start - nextStartB)];
-         }
-      }
-      //denCounter++;
-      if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
-      nextMM = std::min(headA->len, headB->len);
-      return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
-    });
+   //  std::cerr << "LAST BUCKET\n";
+   //  if(verbose) std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[_n-1] << " to " << _sn << "\n";
+   //  if(verbose) for(size_t x = prefSumBucketLengthsCopy[_n-1]; x < _sn; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << "\n";}
+   //  std::sort(beg + prefSumBucketLengthsCopy[_n-1], beg + _sn, 
+   //  [](const Suf a, const Suf b){
+   //    /*if(a.len != b.len){
+   //       uint32_t nextMM = std::min(a.len, b.len);
+   //       return *(_sx + a.idx + docBoundaries[a.doc - 1] + nextMM) < *(_sx + b.idx + docBoundaries[b.doc - 1] + nextMM);
+   //    }*/
+   //    uint32_t nextMM = std::min(a.len, b.len);
+   //    if (_sx[a.idx + docBoundaries[a.doc - 1] + nextMM] != _sx[b.idx + docBoundaries[b.doc - 1] + nextMM]){
+   //       //diffLen++;
+   //       return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
+   //    }
+   //    if(a.len == 0){
+   //       return a.doc < b.doc;
+   //    }
+   //    std::vector<Match>::iterator headA = getHead(a);
+   //    std::vector<Match>::iterator headB = getHead(b);
+   //    headA++;
+   //    headB++;
+   //    //uint64_t counter = 0;
+   //    while(headA->len == headB->len){
+   //       //sumCounter++;
+   //       //counter++;
+   //       //if(maxCounter < counter) maxCounter = counter;
+   //       if(headA->len == 0){
+   //          //denCounter++;
+   //          return a.doc < b.doc;
+   //       }
+   //       if(headA->pos != headB->pos){//denCounter++;
+   //          return _ISA[headA->pos] < _ISA[headB->pos];
+   //       }
+   //       // if(*(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) != *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len)){
+   //       //    //denCounter++;
+   //       //    return *(_sx + headA->start + docBoundaries[a.doc - 1] + headA->len) < *(_sx + headB->start + docBoundaries[b.doc - 1] + headB->len);
+   //       // }
+   //       uint32_t nextStartA = headA->start + headA->len;
+   //       uint32_t nextStartB = headB->start + headB->len;
+   //       headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], Match(nextStartA, 0, 0), 
+   //          [](const Match a, const Match b){return a.start < b.start;}) - 1;
+   //       headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], Match(nextStartB, 0, 0), 
+   //          [](const Match a, const Match b){return a.start < b.start;}) - 1;    
+   //       if((headA->start - nextStartA) != (headB->start - nextStartB)){
+   //          //denCounter++;
+   //          return _ISA[headA->pos - (headA->start - nextStartA)] < _ISA[headB->pos - (headB->start - nextStartB)];
+   //       }
+   //    }
+   //    //denCounter++;
+   //    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
+   //    nextMM = std::min(headA->len, headB->len);
+   //    return _sx[headA->start + docBoundaries[a.doc - 1] + nextMM] < _sx[headB->start + docBoundaries[b.doc - 1] + nextMM];
+   //  });
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     std::cerr << "Sorted in: " << sortTime << " milliseconds\n";

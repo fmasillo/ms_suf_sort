@@ -476,11 +476,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     if(verbose) for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
 
     t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start Sorting procedure for MSGSA\n";
     uint32_t *prefSumBucketLengths = new uint32_t[_n];
-    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n];
+    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n + 1];
     //uint32_t t_sum = 0;
     prefSumBucketLengths[0] = 0;
     prefSumBucketLengthsCopy[0] = 0;
@@ -528,10 +529,14 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0) std::cerr << x << "\n";
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].head << "\n";
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
 
     //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == '%' || _sx[i] == 'X') _sx[i] = '$';}
     
+    t1 = std::chrono::high_resolution_clock::now();
     //Sort suffixes corrisponding to heads
     uint32_t *prefSumBucketLengthsHeads = new uint32_t[_n];
     uint32_t *prefSumBucketLengthsHeadsCopy = new uint32_t[_n];
@@ -559,6 +564,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        std::sort(begHeads + prefSumBucketLengthsHeadsCopy[i-1], begHeads + prefSumBucketLengthsHeadsCopy[i], sortHeadsSA);
     }
     std::sort(begHeads + prefSumBucketLengthsHeadsCopy[_n-1], headsSA.end(), sortHeadsSA);
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t headSortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to sort heads: " << headSortTime << " milliseconds\n";
    //  uint32_t errHeads = 0;
    //  for(size_t i = 1; i < headsSA.size(); i++){
    //     if(verbose) std::cerr << "i=" << i << ": " << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len <<"\n";
@@ -603,6 +611,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
    //  std::cerr << "errHeads " << errHeads << "\n";
     if(verbose) std::cerr << "Outputting headsSA after suffix sorting\n";
     if(verbose) for(size_t i = 0; i < headsSA.size(); i++){std::cerr << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len << " " << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";}
+    
+    t1 = std::chrono::high_resolution_clock::now();
     for(size_t i = 0; i < headsSA.size(); i++){
        phrases[headsSA[i].start].changeP(i);
     }
@@ -610,7 +620,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     //Sort whole GSA
     uint32_t c = 0;
     std::vector<Suf>::iterator beg = MSGSA.begin();
-    for(size_t i = 1; i < _n; i++){
+    prefSumBucketLengthsCopy[_n] = _sn;
+    for(size_t i = 1; i < _n + 1; i++){
       //  if(verbose) std::cerr << "Bucket " << i << "\n";
       //  for(std::vector<Suf>::iterator it = MSGSA.begin()+prefSumBucketLengthsCopy[i-1]; it < MSGSA.begin()+prefSumBucketLengthsCopy[i]; it++){
       //     if(verbose) std::cerr << "it " << it->head << " it+1 " << (it+1)->head << "\n";
@@ -623,7 +634,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "c = " << c << "\n";
     //radixSortLen(MSGSA, prefSumBucketLengthsCopy[_n-1], _sn);
     //radixSortHeadPos(MSGSA, prefSumBucketLengthsCopy[_n-1], _sn);
-    std::sort(beg + prefSumBucketLengthsCopy[_n-1], beg + _sn, compareSuf);
+    //std::sort(beg + prefSumBucketLengthsCopy[_n-1], beg + _sn, compareSuf);
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     std::cerr << "Sorted in: " << sortTime << " milliseconds\n";

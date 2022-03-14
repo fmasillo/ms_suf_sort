@@ -513,20 +513,21 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     if(verbose) for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
     auto t2 = std::chrono::high_resolution_clock::now();
     uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
 
+    t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start Sorting procedure for MSGSA\n";
-    uint32_t *prefSumBucketLengths = new uint32_t[_n]();
-    uint32_t t_sum = 0;
+    uint32_t *prefSumBucketLengths = new uint32_t[_n];
+    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n + 1];
+    prefSumBucketLengths[0] = 0;
+    prefSumBucketLengthsCopy[0] = 0;
     if(verbose) std::cerr << prefSumBucketLengths[0] << "\n";
     for(size_t i = 1; i < _n; i++) {
-       t_sum += bucketLengths[i-1];
-       prefSumBucketLengths[i] = t_sum;
+       prefSumBucketLengths[i] = prefSumBucketLengths[i-1] + bucketLengths[i-1];
+       prefSumBucketLengthsCopy[i] = prefSumBucketLengths[i];
        if(verbose) std::cerr << prefSumBucketLengths[i] << "\n";
     }
-    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n];
-    for(size_t i = 0; i < _n; i++) {prefSumBucketLengthsCopy[i] = prefSumBucketLengths[i];}
-    std::cerr << "Copied prefSumBucketLengths" << "\n";
-
+    
     iCurrentDoc = 0;
     ndoc = 0;
     Match firstHead, secondHead;
@@ -565,6 +566,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0) std::cerr << x << "\n";
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << " " << MSGSA[x].chr << " " << MSGSA[x].smaller << "\n";
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
 
     //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == '%' || _sx[i] == 'X') _sx[i] = '$';}
@@ -572,7 +576,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     t1 = std::chrono::high_resolution_clock::now();
     std::cerr << "Start to sort bucket by bucket\n";
     std::vector<Suf>::iterator beg = MSGSA.begin();
-    for(size_t i = 1; i < _n; i++){
+    prefSumBucketLengthsCopy[_n] = _sn;
+    for(size_t i = 1; i < _n + 1; i++){
        if(verbose) std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[i-1] << " to " << prefSumBucketLengthsCopy[i] << "\n";
        if(verbose) for(size_t x = prefSumBucketLengthsCopy[i-1]; x < prefSumBucketLengthsCopy[i]; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << " " << MSGSA[x].chr << " " << MSGSA[x].smaller << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];}
        //radix sort by char
@@ -590,21 +595,21 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(verbose) std::cerr << "After sort lenDesc\n";
        if(verbose) for(size_t x = prefSumBucketLengthsCopy[i-1]; x < prefSumBucketLengthsCopy[i]; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << " " << MSGSA[x].chr << " " << MSGSA[x].smaller << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];}
     }
-    std::cerr << "LAST BUCKET\n";
-    std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[_n-1] << " to " << _sn << "\n";
-    if(verbose) for(size_t x = prefSumBucketLengthsCopy[_n-1]; x < _sn; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << "\n";}
-    //radix sort by char
-    radixSortChar(MSGSA, prefSumBucketLengthsCopy[_n-1], _sn);
-    //radix sort by smaller
-    uint32_t zeros = radixSortSmaller(MSGSA, prefSumBucketLengthsCopy[_n-1], _sn);
-    if(verbose) std::cerr << "Number of zeros " << zeros << "\n"; 
-    //radix sort by len
-    radixSortLen(MSGSA, prefSumBucketLengthsCopy[_n-1], prefSumBucketLengthsCopy[_n-1]+zeros);
-    solveTies(beg, prefSumBucketLengthsCopy[_n-1], prefSumBucketLengthsCopy[_n-1]+zeros);
-    radixSortLenDecr(MSGSA, prefSumBucketLengthsCopy[_n-1]+zeros, _sn);
-    solveTies(beg, prefSumBucketLengthsCopy[_n-1]+zeros, _sn);
-    if(verbose) std::cerr << "After sort\n";
-    if(verbose) for(size_t x = prefSumBucketLengthsCopy[_n-1]; x < _sn; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << " " << MSGSA[x].chr << " " << MSGSA[x].smaller << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];}
+   //  std::cerr << "LAST BUCKET\n";
+   //  std::cerr << "Sorting bucket from " << prefSumBucketLengthsCopy[_n-1] << " to " << _sn << "\n";
+   //  if(verbose) for(size_t x = prefSumBucketLengthsCopy[_n-1]; x < _sn; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << "\n";}
+   //  //radix sort by char
+   //  radixSortChar(MSGSA, prefSumBucketLengthsCopy[_n-1], _sn);
+   //  //radix sort by smaller
+   //  uint32_t zeros = radixSortSmaller(MSGSA, prefSumBucketLengthsCopy[_n-1], _sn);
+   //  if(verbose) std::cerr << "Number of zeros " << zeros << "\n"; 
+   //  //radix sort by len
+   //  radixSortLen(MSGSA, prefSumBucketLengthsCopy[_n-1], prefSumBucketLengthsCopy[_n-1]+zeros);
+   //  solveTies(beg, prefSumBucketLengthsCopy[_n-1], prefSumBucketLengthsCopy[_n-1]+zeros);
+   //  radixSortLenDecr(MSGSA, prefSumBucketLengthsCopy[_n-1]+zeros, _sn);
+   //  solveTies(beg, prefSumBucketLengthsCopy[_n-1]+zeros, _sn);
+   //  if(verbose) std::cerr << "After sort\n";
+   //  if(verbose) for(size_t x = prefSumBucketLengthsCopy[_n-1]; x < _sn; x++) {std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << MSGSA[x].len << " " << MSGSA[x].chr << " " << MSGSA[x].smaller << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];}
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     std::cerr << "Sorted in: " << sortTime << " milliseconds\n";

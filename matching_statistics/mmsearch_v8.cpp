@@ -398,7 +398,11 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     //MSGSA.pop_back();
     if(verbose) std::cerr << "Printing docBoundaries" << "\n";
     if(verbose) for(size_t i = 0; i < docBoundaries.size(); i++){ std::cerr << docBoundaries[i] << ", letter: " << _sx[docBoundaries[i]] << "\n";}
-    
+    auto t2 = std::chrono::high_resolution_clock::now();
+    uint64_t lzFactorizeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to compute matching statistics: " << lzFactorizeTime << " milliseconds\n";
+
+    t1 = std::chrono::high_resolution_clock::now();
     bool *typeArray = new bool[_sn];
     typeArray[_sn - 1] = 0;
     for(uint64_t i = _sn - 2; i < _sn; i--){
@@ -467,10 +471,14 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
 
     //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
     for(size_t i = 0; i < _sn; i++) {if(_sx[i] == '%' || _sx[i] == 'X') _sx[i] = '$';}
 
+    t1 = std::chrono::high_resolution_clock::now();
     //Sort suffixes corrisponding to heads
     uint32_t *prefSumBucketLengthsHeads = new uint32_t[_n];
     uint32_t *prefSumBucketLengthsHeadsCopy = new uint32_t[_n];
@@ -498,6 +506,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        std::sort(begHeads + prefSumBucketLengthsHeadsCopy[i-1], begHeads + prefSumBucketLengthsHeadsCopy[i], sortHeadsSA);
     }
     std::sort(begHeads + prefSumBucketLengthsHeadsCopy[_n-1], headsSA.end(), sortHeadsSA);
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t headSortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Time to sort heads: " << headSortTime << " milliseconds\n";  
     /*
     uint32_t errHeads = 0;
     for(size_t i = 1; i < headsSA.size(); i++){
@@ -544,11 +555,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     */
     if(verbose) std::cerr << "Outputting headsSA after suffix sorting\n";
     if(verbose) for(size_t i = 0; i < headsSA.size(); i++){std::cerr << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len << " " << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";}
+    
+    t1 = std::chrono::high_resolution_clock::now();
     for(size_t i = 0; i < headsSA.size(); i++){
        phrases[headsSA[i].start].changeP(i);
     }
 
-    
     //sort S*-suffixes
     uint32_t errStar = 0;
     std::cerr << "Starting to sort S*-suffixes\n";
@@ -564,12 +576,16 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Sorted in: " << sortTime << " milliseconds\n";
 
     //induce whole GSA
     if(verbose) for(uint64_t i = 0; i < _sn; i++){
        std::cerr << _sx[i] << " type: " << typeArray[i] << "\n";
     }
     
+    t1 = std::chrono::high_resolution_clock::now();
     //change back original positions in heads
     for(size_t i = 0; i < headsSA.size(); i++){
        phrases[i].changeP(headsSA[phrases[i].pos].pos);
@@ -613,9 +629,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
     }
 
-    auto t2 = std::chrono::high_resolution_clock::now();
-    uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-    std::cerr << "Sorted in: " << sortTime << " milliseconds\n";
+    t2 = std::chrono::high_resolution_clock::now();
+    uint64_t induceTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    std::cerr << "Induced in: " << induceTime << " milliseconds\n";
 
     std::cerr << "Checking GSA\n"; 
     uint32_t err = 0;
