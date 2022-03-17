@@ -50,6 +50,7 @@ uint64_t sumCounter = 0;
 uint64_t diffLen = 0;
 uint64_t finalSuffCounter = 0;
 
+uint16_t sizeChars = 256;
 struct Match{
    //uint64_t suf; //position of suffix in collection
    uint32_t start; //position in the collection 
@@ -162,13 +163,16 @@ inline std::vector<Match>::iterator getHead(Suf a){
 bool sortHeadsSA(const Match &a, const Match &b){
    Match trueHeadA = phrases[a.start];
    Match trueHeadB = phrases[b.start];
+   if(trueHeadA.pos != trueHeadB.pos){
+      return _ISA[trueHeadA.pos] < _ISA[trueHeadB.pos];
+   }
 
    uint32_t nextMM = std::min(trueHeadA.len, trueHeadB.len);
    if (_sx[trueHeadA.start + docBoundaries[a.len - 1] + nextMM] != _sx[trueHeadB.start + docBoundaries[b.len - 1] + nextMM]){
       diffLen++;
       return _sx[trueHeadA.start + docBoundaries[a.len - 1] + nextMM] < _sx[trueHeadB.start + docBoundaries[b.len - 1] + nextMM];
    }
-   if(trueHeadA.len == 0){
+   if((phrases[a.start+1].start == 0) & (phrases[b.start+1].start == 0)){
       return a.len < b.len;
    }
    std::vector<Match>::iterator headA = phrases.begin() + a.start;
@@ -182,23 +186,33 @@ bool sortHeadsSA(const Match &a, const Match &b){
       sumCounter++;
       counter++;
       if(maxCounter < counter) maxCounter = counter;
-      if(headA->len == 0){
+      if(((headA+1)->start == 0) & ((headB+1)->start) == 0){
          return a.len < b.len;
       }
       if(headA->pos != headB->pos){
          denCounter++;
          return _ISA[headA->pos] < _ISA[headB->pos];}
-      //if(*(_sx + headA->start + docBoundaries[a.len - 1 ] + headA->len) != *(_sx + headB->start + docBoundaries[b.len - 1] + headB->len)){
-      //   return *(_sx + headA->start + docBoundaries[a.len - 1 ] + headA->len) < *(_sx + headB->start + docBoundaries[b.len - 1] + headB->len);
-      //}
+      if(_sx[headA->start + docBoundaries[a.len - 1 ] + headA->len] != _sx[headB->start + docBoundaries[b.len - 1] + headB->len]){
+        return _sx[headA->start + docBoundaries[a.len - 1 ] + headA->len] < _sx[headB->start + docBoundaries[b.len - 1] + headB->len];
+      }
       nextStartA = headA->start + headA->len;
       nextStartB = headB->start + headB->len;
-      headNextStart.changeS(nextStartA);
-      headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len], headNextStart, 
-         [](const Match first, const Match second){return first.start < second.start;}) - 1;
-      headNextStart.changeS(nextStartB);
-      headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len], headNextStart, 
-         [](const Match first, const Match second){return first.start < second.start;}) - 1;    
+      if(headA->len != 0){
+         headNextStart.changeS(nextStartA);
+         headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len], headNextStart, 
+            [](const Match first, const Match second){return first.start < second.start;}) - 1;
+      }
+      else{
+         headA++;
+      }
+      if(headB->len != 0){
+         headNextStart.changeS(nextStartB);
+         headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len], headNextStart, 
+            [](const Match first, const Match second){return first.start < second.start;}) - 1;  
+      }
+      else{
+         headB++;
+      }  
       if((headA->start - nextStartA) != (headB->start - nextStartB)){
          denCounter++;
          return _ISA[headA->pos - (headA->start - nextStartA)] < _ISA[headB->pos - (headB->start - nextStartB)];
@@ -216,6 +230,12 @@ bool compareSuf(const Suf &a, const Suf &b){
          [](const Match first, const Match second){return first.start < second.start;}) - 1;
    std::vector<Match>::iterator headB = std::upper_bound(phrases.begin() + headBoundaries[b.doc - 1], phrases.begin() + headBoundaries[b.doc], Match(b.idx, 0, 0), 
          [](const Match first, const Match second){return first.start < second.start;}) - 1;
+   if(((a.idx - headA->start) == 0) & ((b.idx - headB->start) == 0)){
+      return headA->pos < headB->pos;
+   }
+   if(_ISA[headsSA[headA->pos].pos + (a.idx - headA->start)] != _ISA[headsSA[headB->pos].pos + (b.idx - headB->start)]){
+      return _ISA[headsSA[headA->pos].pos + (a.idx - headA->start)] < _ISA[headsSA[headB->pos].pos + (b.idx - headB->start)];
+   }
    if(headA->len - (a.idx - headA->start) != headB->len - (b.idx - headB->start)){
       uint32_t nextMM = std::min(headA->len - (a.idx - headA->start), headB->len - (b.idx - headB->start));
       return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
@@ -230,6 +250,13 @@ bool compareSuf(const Suf &a, const Suf &b){
       headNextStart.changeS(nextStartB);
       std::vector<Match>::iterator nextHeadB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], headNextStart, 
          [](const Match first, const Match second){return first.start < second.start;}) - 1;
+      // if((nextStartA - nextHeadA->start) != (nextStartB - nextHeadB->start)){
+      //    uint32_t maxDiff= std::max((nextStartA - nextHeadA->start), (nextStartB - nextHeadB->start));
+      //    return (memcmp(_sx + nextStartA + docBoundaries[a.doc - 1] - maxDiff, _sx + nextStartB + docBoundaries[b.doc - 1] - maxDiff, maxDiff + 1)) ? 1 : 0;
+      // }
+      // else{
+      //    return nextHeadA->pos < nextHeadB->pos;
+      // }
       return ((nextHeadA->start - nextStartA) != (nextHeadB->start - nextStartB)) ? _ISA[headsSA[nextHeadA->pos].pos - (nextHeadA->start - nextStartA)] < _ISA[headsSA[nextHeadB->pos].pos - (nextHeadB->start - nextStartB)] : nextHeadA->pos < nextHeadB->pos;
    }
 }
@@ -308,15 +335,18 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     docBoundaries.push_back(0);
     uint32_t ndoc = 1;
     uint32_t iCurrentDoc = 0;
-    uint32_t *bucketLengths = new uint32_t[_n]();
-    uint32_t *bucketLengthsHeads = new uint32_t[_n]();
+   //  uint32_t *bucketLengths = new uint32_t[_n]();
+   //  uint32_t *bucketLengthsHeads = new uint32_t[_n]();
+    uint32_t *bucketLengthsHeads = new uint32_t[sizeChars]();
     if(verbose) for(size_t s = 0; s < _n; s++){
        std::cerr << s << "\t" << _SA[s] << "\t" << _x + _SA[s];
     }
 
     headBoundaries.push_back(0);
     uint64_t i = 0;
+    uint64_t *charBkts = new uint64_t[sizeChars]();
     while(i < _sn) {
+        charBkts[_sx[i]]++;
         //std::cout << "i: " << i << "\n";
         if(i > mark){
            fprintf(stderr,"i = %lu; lpfRuns = %ld\n",i,lpfRuns);
@@ -338,7 +368,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
         //if(typeArray[i] == 0 & typeArray[i-1] == 1){
             //phrases.push_back(std::make_pair(match,len));
             phrases.push_back(Match(iCurrentDoc, pos, len));
-            bucketLengthsHeads[_ISA[pos]]++;
+            //bucketLengthsHeads[_ISA[pos]]++;
+            bucketLengthsHeads[_sx[i]]++;
             //std::cout << "New Phrase\nleftB: " << leftB << " pos: " << pos << " len: " << len << '\n';
             lpfRuns++;
             if(maxFactorLength < len){ maxFactorLength = len; }
@@ -350,7 +381,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
          }
         //}
         //if(verbose) std::cerr << "Adding one to position pos --> _ISA[pos] --> len: " << pos << "," << _ISA[pos] << "," << len << "\n";
-        bucketLengths[_ISA[pos]]++;
+        
+        //bucketLengths[_ISA[pos]]++;
         prevPos = pos;
         //std::cerr << "i:" << i << "; pos,ISA[pos],match,len: (" << pos << "," << _ISA[pos] << "," << match << "," << len << ") " << "\n";
         //for(int a = pos; a < pos + len; a++){ std::cerr << _x[a];}
@@ -361,7 +393,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
         //MSGSA.push_back(Suf(iCurrentDoc, ndoc, _ISA[pos], len));
 
         iCurrentDoc++;
-        if(len == 0 || _sx[i] == '$'){ //new doc found
+        if(_sx[i] == '%'){ //new doc found
            pos = (((uint32_t)_sx[i]) | (1<<31)); 
            docBoundaries.push_back(iCurrentDoc + docBoundaries[ndoc-1]); 
            headBoundaries.push_back(phrases.size());
@@ -417,21 +449,33 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        }
     }
     std::cerr << "Start Sorting procedure for MSGSA\n";
-    uint32_t *prefSumBucketLengths = new uint32_t[_n + 1];
-    uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n + 1];
-    //uint32_t t_sum = 0;
-    prefSumBucketLengths[0] = 0;
-    prefSumBucketLengthsCopy[0] = 0;
-    if(verbose) std::cerr << prefSumBucketLengths[0] << "\n";
-    for(size_t i = 1; i < _n; i++){
-       //t_sum += bucketLengths[i-1];
-       prefSumBucketLengths[i] = prefSumBucketLengths[i-1] + bucketLengths[i-1];
-       if(verbose) std::cerr << prefSumBucketLengths[i] << "\n";
+    uint64_t *prefSumCharBkts = new uint64_t[(sizeChars) + 1];
+    uint64_t *prefSumCharBktsEnds = new uint64_t[sizeChars];
+    prefSumCharBkts[0] = 0;
+    for(uint32_t i = 1; i < sizeChars; i++){
+       prefSumCharBkts[i] = prefSumCharBkts[i-1] + charBkts[i-1];
     }
-    prefSumBucketLengths[_n] = _sn;
-    for(size_t i = 0; i < _n; i++){
-       prefSumBucketLengthsCopy[i] = prefSumBucketLengths[i+1]-1;
+    prefSumCharBkts[sizeChars] = _sn;
+    for(size_t i = 0; i < sizeChars; i++){
+       prefSumCharBktsEnds[i] = prefSumCharBkts[i+1]-1;
     }
+    if(verbose) std::cerr << "Printing prefSumCharBkts" << "\n";
+    if(verbose) for(size_t i = 0; i < sizeChars; i++){ std::cerr << prefSumCharBkts[i] << "\n";}
+   //  uint32_t *prefSumBucketLengths = new uint32_t[_n + 1];
+   //  uint32_t *prefSumBucketLengthsCopy = new uint32_t[_n + 1];
+   //  //uint32_t t_sum = 0;
+   //  prefSumBucketLengths[0] = 0;
+   //  prefSumBucketLengthsCopy[0] = 0;
+   //  if(verbose) std::cerr << prefSumBucketLengths[0] << "\n";
+   //  for(size_t i = 1; i < _n; i++){
+   //     //t_sum += bucketLengths[i-1];
+   //     prefSumBucketLengths[i] = prefSumBucketLengths[i-1] + bucketLengths[i-1];
+   //     if(verbose) std::cerr << prefSumBucketLengths[i] << "\n";
+   //  }
+   //  prefSumBucketLengths[_n] = _sn;
+   //  for(size_t i = 0; i < _n; i++){
+   //     prefSumBucketLengthsCopy[i] = prefSumBucketLengths[i+1]-1;
+   //  }
 
     //iCurrentDoc = 0;
     ndoc = 0;
@@ -451,13 +495,16 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(secondHead.start == 0){
           if(verbose) std::cerr << "End of doc " << ndoc << "\n";
           //if(typeArray[firstHead.start + docBoundaries[ndoc - 1]] == 0 & typeArray[firstHead.start + docBoundaries[ndoc - 1] - 1] == 1)
-          MSGSA[prefSumBucketLengths[_ISA[firstHead.pos]] + (bucketLengths[_ISA[firstHead.pos]]--) - 1] = Suf(firstHead.start, ndoc);
+          //MSGSA[prefSumBucketLengths[_ISA[firstHead.pos]] + (bucketLengths[_ISA[firstHead.pos]]--) - 1] = Suf(firstHead.start, ndoc);
+          MSGSA[prefSumCharBkts[_sx[firstHead.start + docBoundaries[ndoc - 1]]] + (charBkts[_sx[firstHead.start + docBoundaries[ndoc - 1]]]--) - 1] = Suf(firstHead.start, ndoc);
        }
        else{
           for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
              if(firstHead.start + docBoundaries[ndoc - 1] + start != 0){
                 if(typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0 & typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1){
-                   MSGSA[prefSumBucketLengths[_ISA[firstHead.pos + start]] + (bucketLengths[_ISA[firstHead.pos + start]]--) - 1] = Suf(firstHead.start + start, ndoc);
+                   //MSGSA[prefSumBucketLengths[_ISA[firstHead.pos + start]] + (bucketLengths[_ISA[firstHead.pos + start]]--) - 1] = Suf(firstHead.start + start, ndoc);
+                   MSGSA[prefSumCharBkts[_sx[firstHead.start + docBoundaries[ndoc - 1] + start]] + (charBkts[_sx[firstHead.start + docBoundaries[ndoc - 1] + start]]--) - 1] = Suf(firstHead.start + start, ndoc);
+
                 }
              }
              else{
@@ -466,7 +513,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
           }
        }
     }
-    MSGSA[prefSumBucketLengths[_ISA[secondHead.pos]] + (bucketLengths[_ISA[secondHead.pos]]--) - 1] = Suf(secondHead.start, ndoc);
+    //MSGSA[prefSumBucketLengths[_ISA[secondHead.pos]] + (bucketLengths[_ISA[secondHead.pos]]--) - 1] = Suf(secondHead.start, ndoc);
+    MSGSA[prefSumCharBkts[_sx[secondHead.start + docBoundaries[ndoc - 1]]] + (charBkts[_sx[secondHead.start + docBoundaries[ndoc - 1]]]--) - 1] = Suf(secondHead.start, ndoc);
     if(verbose) for(size_t x = 0; x < _sn; x++) {
        if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
        if(verbose) std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
@@ -480,11 +528,11 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
 
     t1 = std::chrono::high_resolution_clock::now();
     //Sort suffixes corrisponding to heads
-    uint32_t *prefSumBucketLengthsHeads = new uint32_t[_n];
-    uint32_t *prefSumBucketLengthsHeadsCopy = new uint32_t[_n];
+    uint32_t *prefSumBucketLengthsHeads = new uint32_t[sizeChars];
+    uint32_t *prefSumBucketLengthsHeadsCopy = new uint32_t[sizeChars];
     prefSumBucketLengthsHeads[0] = 0;
     prefSumBucketLengthsHeadsCopy[0] = 0; 
-    for(size_t i = 1; i < _n; i++){
+    for(size_t i = 1; i < sizeChars; i++){
        prefSumBucketLengthsHeads[i] = prefSumBucketLengthsHeads[i-1] + bucketLengthsHeads[i-1];
        prefSumBucketLengthsHeadsCopy[i] = prefSumBucketLengthsHeads[i];
     }
@@ -495,64 +543,46 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(it->start == 0){
           ndoc++;
        }
-       headsSA[prefSumBucketLengthsHeads[_ISA[it->pos]]] = Match(i, it->pos, ndoc);
-       prefSumBucketLengthsHeads[_ISA[it->pos]]++;
-       i++;
+       headsSA[prefSumBucketLengthsHeads[_sx[it->start + docBoundaries[ndoc - 1]]]++] = Match(i++, it->pos, ndoc);
+       //headsSA[prefSumBucketLengthsHeads[_ISA[it->pos]]] = Match(i, it->pos, ndoc);
+       //prefSumBucketLengthsHeads[_ISA[it->pos]]++;
+       //i++;
     }
     if(verbose) std::cerr << "Outputting headsSA bucketed (size=" << headsSA.size() << ")\n";
     if(verbose) for(size_t i = 0; i < headsSA.size(); i++){std::cerr << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len << " " << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";}
     std::vector<Match>::iterator begHeads = headsSA.begin();
-    for(size_t i = 1; i < _n; i++){
+    for(size_t i = 1; i < sizeChars; i++){
        std::sort(begHeads + prefSumBucketLengthsHeadsCopy[i-1], begHeads + prefSumBucketLengthsHeadsCopy[i], sortHeadsSA);
     }
-    std::sort(begHeads + prefSumBucketLengthsHeadsCopy[_n-1], headsSA.end(), sortHeadsSA);
+    std::sort(begHeads + prefSumBucketLengthsHeadsCopy[sizeChars-1], headsSA.end(), sortHeadsSA);
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t headSortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     std::cerr << "Time to sort heads: " << headSortTime << " milliseconds\n";  
-    /*
+    
     uint32_t errHeads = 0;
-    for(size_t i = 1; i < headsSA.size(); i++){
+    if(verbose) for(size_t i = 1; i < headsSA.size(); i++){
        if(verbose) std::cerr << "i=" << i << ": " << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len <<"\n";
        data_type *_slice_sx = _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1];
        data_type *_slice_prev;
        uint32_t maxIdx;
        if(i>0){
          _slice_prev = _sx + phrases[headsSA[i-1].start].start + docBoundaries[headsSA[i-1].len - 1];
-         //maxIdx = std::min(docBoundaries[MSGSA[i].doc] - (MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1]), docBoundaries[MSGSA[i-1].doc] - (MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1]));
+         maxIdx = std::min(docBoundaries[headsSA[i-1].len] - (phrases[headsSA[i-1].start].start + docBoundaries[headsSA[i-1].len - 1]), docBoundaries[headsSA[i].len] - (phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1]));
        } 
        else{
           _slice_prev = _sx+_sn-1;
-          //maxIdx = 1;
+          maxIdx = 1;
        }
        if(verbose) std::cerr << "suf_i-1 " << _slice_prev;
        if(verbose) std::cerr << "suf_i " << _slice_sx << "\n";
-       while(*_slice_sx && *_slice_prev){
-          //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-          //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-          if(*_slice_sx == '$' | *_slice_prev == '$'){break;}
-          if(*_slice_sx != *_slice_prev){
-             if(*_slice_sx < *_slice_prev){
-               if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << phrases[headsSA[i-1].start].start << "," << headsSA[i-1].len << ") and " << i << " (" << phrases[headsSA[i].start].start << "," << headsSA[i].len << ")\n"; 
-               if(verbose) std::cerr << _sx + phrases[headsSA[i-1].start].start + docBoundaries[headsSA[i-1].len - 1] << "\n";
-               if(verbose) std::cerr << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";
-               if(verbose) std::cerr << "\n";
-               //std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
-               //std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
-               errHeads++;
-               //if(err == 2){std::cerr << "error=2\n"; exit(1);}
-               break;
-             }
-             else{
-                break;
-             }
-          }
-          
-          _slice_sx++;
-          _slice_prev++;
+       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+         errHeads++;
+         //if(err) break;
        }
     }
     std::cerr << "errHeads " << errHeads << "\n";
-    */
+    
     if(verbose) std::cerr << "Outputting headsSA after suffix sorting\n";
     if(verbose) for(size_t i = 0; i < headsSA.size(); i++){std::cerr << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len << " " << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";}
     
@@ -565,9 +595,21 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     uint32_t errStar = 0;
     std::cerr << "Starting to sort S*-suffixes\n";
     std::vector<Suf>::iterator beg = MSGSA.begin();
-    for(size_t i = 1; i < _n + 1; i++){
-       if(verbose) std::cerr << i << " " << prefSumBucketLengths[i-1] + bucketLengths[i-1] << " " << prefSumBucketLengths[i] << "\n";
-       std::sort(beg + prefSumBucketLengths[i-1] + bucketLengths[i-1], beg + prefSumBucketLengths[i], compareSuf);
+    for(size_t i = 1; i < sizeChars + 1; i++){
+       if(verbose) std::cerr << i << " " << prefSumCharBkts[i-1] + charBkts[i-1] << " " << prefSumCharBkts[i] << "\n";
+       std::sort(beg + prefSumCharBkts[i-1] + charBkts[i-1], beg + prefSumCharBkts[i], compareSuf);
+       
+       if(verbose) for(size_t u = prefSumCharBkts[i-1] + charBkts[i-1] + 1; u < prefSumCharBkts[i]; u++){
+         data_type *_slice_sx = _sx + MSGSA[u].idx + docBoundaries[MSGSA[u].doc - 1];
+         data_type *_slice_prev = _sx + MSGSA[u-1].idx + docBoundaries[MSGSA[u-1].doc - 1];;
+         uint32_t maxIdx = std::min(docBoundaries[MSGSA[u].doc] - (MSGSA[u].idx + docBoundaries[MSGSA[u].doc - 1]), docBoundaries[MSGSA[u-1].doc] - (MSGSA[u-1].idx + docBoundaries[MSGSA[u-1].doc - 1]));
+
+         if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+            //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+            errStar++;
+            //if(err) break;
+         }
+       } 
     }
     if(verbose) std::cerr << "errStar: " << errStar << "\n";
     //if(verbose) std::cerr << "Last bucket S*-suffixes\n";
@@ -595,8 +637,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(likely((beg + i)->idx != 0)){
           if(typeArray[(beg + i)->idx + docBoundaries[(beg + i)->doc - 1] - 1] == 1){
              Suf lSuf = Suf((beg + i)->idx - 1, (beg + i)->doc);
-             std::vector<Match>::iterator head = getHead(lSuf);
-             MSGSA[prefSumBucketLengths[_ISA[head->pos + (lSuf.idx - head->start)]]++] = lSuf;
+             //std::vector<Match>::iterator head = getHead(lSuf);
+             //MSGSA[prefSumBucketLengths[_ISA[head->pos + (lSuf.idx - head->start)]]++] = lSuf;
+             MSGSA[prefSumCharBkts[_sx[lSuf.idx + docBoundaries[lSuf.doc - 1]]]++] = lSuf;
           }
        }
        //else if((beg + i)->doc){
@@ -615,8 +658,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(likely((beg + i)->idx != 0)){
           if(typeArray[(beg + i)->idx + docBoundaries[(beg + i)->doc - 1] - 1] == 0){
              Suf sSuf = Suf((beg + i)->idx - 1, (beg + i)->doc);
-             std::vector<Match>::iterator head = getHead(sSuf);
-             MSGSA[prefSumBucketLengthsCopy[_ISA[head->pos + (sSuf.idx - head->start)]]--] = sSuf;
+             //std::vector<Match>::iterator head = getHead(sSuf);
+             //MSGSA[prefSumBucketLengthsCopy[_ISA[head->pos + (sSuf.idx - head->start)]]--] = sSuf;
+             MSGSA[prefSumCharBktsEnds[_sx[sSuf.idx + docBoundaries[sSuf.doc - 1]]]--] = sSuf;
           }
        }
        //else if((beg + i)->doc){
@@ -652,40 +696,11 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
        if(verbose) std::cerr << "suf_i-1 " << _slice_prev;
        if(verbose) std::cerr << "suf_i " << _slice_sx << "\n";
        
-       
-       //while((*_slice_sx != '$') & (*_slice_sx == *_slice_prev)){
-      //  while(*_slice_sx && *_slice_prev){
-      //     //if(verbose) std::cerr << "suf_i " << *_slice_sx << "\n";
-      //     //if(verbose) std::cerr << "suf_i-1 " << *_slice_prev << "\n";
-      //     if(*_slice_sx == '$' | *_slice_prev == '$'){break;}
-      //     if(*_slice_sx != *_slice_prev){
-      //        if(*_slice_sx < *_slice_prev){
-      //          std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ")->" << MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << " and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")->" << MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n"; 
-      //          if(verbose) std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] << "\n";
-      //          if(verbose) std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1] << "\n";
-      //          if(verbose) std::cerr << "\n";
-      //          //std::cerr << _sx + MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1];
-      //          //std::cerr << _sx + MSGSA[i].idx + docBoundaries[MSGSA[i].doc - 1];
-      //          err++;
-      //          //if(err == 2){std::cerr << "error=2\n"; exit(1);}
-      //          break;
-      //        }
-      //        else{
-      //           break;
-      //        }
-      //     }
-          
-      //     _slice_sx++;
-      //     _slice_prev++;
-      //  }
-      //  if(*_slice_sx < *_slice_prev){
-      //     err++;
-      //  }
-      if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
-         //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
          err++;
          //if(err) break;
-      }
+       }
     }
     std::cerr << "n. errors " << err << "\n"; 
     std::cerr << "maxCounter " << maxCounter << "\n";
@@ -695,9 +710,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     std::cerr << "times it compared two suff in const time " << finalSuffCounter << "\n";
     //std::cerr << "n. of ties " << tiesCounter << "\n";
     delete[] sx;
-    delete[] bucketLengths;
-    delete[] prefSumBucketLengths;
-    delete[] prefSumBucketLengthsCopy;
+   //  delete[] bucketLengths;
+   //  delete[] prefSumBucketLengths;
+   //  delete[] prefSumBucketLengthsCopy;
     delete[] _LCP;
     delete[] _ISA;
     delete[] _SA;
@@ -853,19 +868,19 @@ void computeLZFactorAt(filelength_type i, filelength_type *pos, filelength_type 
 
     //std::cerr << "Here at least?" << i << "\n";
     //treat runs of N's in a special way
-    if(_sx[i] == 'N'){
-       //std::cerr << "Hit a run of Ns... \n";
-       //std::cerr.flush();
-       uint64_t start = i;
-       while(_sx[i] == 'N' && _sx[i]  != '$'){ //file should be terminated with an X, so no need to check length ---> && i < _sn){
-          i++;
-       }
-       mismatchingSymbol = _sx[i];
-       *len = i - start;
-       *pos = _n;
-       //std::cerr << "Hit a run of Ns, " << *len << " symbols long.\n";
-       return;
-    }
+   //  if(_sx[i] == 'N'){
+   //     //std::cerr << "Hit a run of Ns... \n";
+   //     //std::cerr.flush();
+   //     uint64_t start = i;
+   //     while(_sx[i] == 'N' && _sx[i]  != '$'){ //file should be terminated with an X, so no need to check length ---> && i < _sn){
+   //        i++;
+   //     }
+   //     mismatchingSymbol = _sx[i];
+   //     *len = i - start;
+   //     *pos = _n;
+   //     //std::cerr << "Hit a run of Ns, " << *len << " symbols long.\n";
+   //     return;
+   //  }
     //std::cerr << "After.\n";
 
 
