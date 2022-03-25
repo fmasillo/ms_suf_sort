@@ -1,0 +1,3 @@
+[submodule "matching_statistics/libdivsufsort"]
+	path = matching_statistics/libdivsufsort
+	url = https://github.com/y-256/libdivsufsort
