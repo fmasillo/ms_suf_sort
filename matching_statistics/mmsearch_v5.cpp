@@ -688,7 +688,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
       //     err++;
       //  }
       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
-         //std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
+         if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
          err++;
          //if(err) break;
       }
@@ -860,19 +860,19 @@ void computeLZFactorAt(filelength_type i, filelength_type *pos, filelength_type 
 
     //std::cerr << "Here at least?" << i << "\n";
     //treat runs of N's in a special way
-    if(_sx[i] == 'N'){
-       //std::cerr << "Hit a run of Ns... \n";
-       //std::cerr.flush();
-       uint64_t start = i;
-       while(_sx[i] == 'N' && _sx[i]  != '$'){ //file should be terminated with an X, so no need to check length ---> && i < _sn){
-          i++;
-       }
-       mismatchingSymbol = _sx[i];
-       *len = i - start;
-       *pos = _n;
-       //std::cerr << "Hit a run of Ns, " << *len << " symbols long.\n";
-       return;
-    }
+   //  if(_sx[i] == 'N'){
+   //     //std::cerr << "Hit a run of Ns... \n";
+   //     //std::cerr.flush();
+   //     uint64_t start = i;
+   //     while(_sx[i] == 'N' && _sx[i]  != '$'){ //file should be terminated with an X, so no need to check length ---> && i < _sn){
+   //        i++;
+   //     }
+   //     mismatchingSymbol = _sx[i];
+   //     *len = i - start;
+   //     *pos = _n;
+   //     //std::cerr << "Hit a run of Ns, " << *len << " symbols long.\n";
+   //     return;
+   //  }
     //std::cerr << "After.\n";
 
 

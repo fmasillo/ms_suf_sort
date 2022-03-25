@@ -36,6 +36,8 @@ int main(int argc, char **argv) {
     }
 
     filename[strlen(filename) - 1] = 0;
+    char *refFileName = new char[1024];
+    strcpy(refFileName, filename);
 
     std::cerr << filename << '\n';
 
@@ -61,27 +63,27 @@ int main(int argc, char **argv) {
     x[n] = 0;
     fclose(infile);
 
-    fprintf(stderr, "About to read SA of ref\n");
+    //fprintf(stderr, "About to read SA of ref\n");
     //read the suffix array
-    char safilename[256];
-    sprintf(safilename, "%s.sa", filename);
-    std::cerr << safilename << '\n';
-    infile = fopen(safilename, "r");
-    if (!infile) {
-        fprintf(stderr, "Error opening suffix array of input file %s\n", safilename);
-        exit(1);
-    }
-    unsigned int san = 0;
-    fseek(infile, 0, SEEK_END);
-    san = ftell(infile) / sizeof(unsigned int);
-    std::cerr << "san = " << san << '\n';
-    fseek(infile, 0, SEEK_SET);
-    unsigned int *sa = new unsigned int[san];
-    if (san != fread(sa, sizeof(unsigned int), san, infile)) {
-        fprintf(stderr, "Error reading sa from file\n");
-        exit(1);
-    }
-    fclose(infile);
+    // char safilename[256];
+    // sprintf(safilename, "%s.sa", filename);
+    // std::cerr << safilename << '\n';
+    // infile = fopen(safilename, "r");
+    // if (!infile) {
+    //     fprintf(stderr, "Error opening suffix array of input file %s\n", safilename);
+    //     exit(1);
+    // }
+    // unsigned int san = 0;
+    // fseek(infile, 0, SEEK_END);
+    // san = ftell(infile) / sizeof(unsigned int);
+    // std::cerr << "san = " << san << '\n';
+    // fseek(infile, 0, SEEK_SET);
+    // unsigned int *sa = new unsigned int[san];
+    // if (san != fread(sa, sizeof(unsigned int), san, infile)) {
+    //     fprintf(stderr, "Error reading sa from file\n");
+    //     exit(1);
+    // }
+    // fclose(infile);
 
     //std::cerr << "Checking SA\n";
     //uint64_t lcpsum = 0;
@@ -111,23 +113,26 @@ int main(int argc, char **argv) {
     fprintf(stderr, "\n");
 
     //compute relative LZ factorization
-    lzInitialize(x, sa, n, std::stoul(argv[2]));
-    int seqno = 1;
-    unsigned int totalNumFactors = 0;
-//    double totalBitsOut = 0;
-    while (fgets(filename, 1024, infilesfile)) {
-        filename[strlen(filename) - 1] = '\0';
-        fprintf(stderr, "Reading sequence %d (%s)\n", seqno, filename);
+    fgets(filename, 1024, infilesfile);
+    filename[strlen(filename) - 1] = '\0';
+    lzInitialize(x, n, std::stoul(argv[2]), refFileName, filename);
+    lzFactorize(filename, 0, argv[3], verbose);
+//     int seqno = 1;
+//     unsigned int totalNumFactors = 0;
+// //    double totalBitsOut = 0;
+//     while (fgets(filename, 1024, infilesfile)) {
+//         filename[strlen(filename) - 1] = '\0';
+//         fprintf(stderr, "Reading sequence %d (%s)\n", seqno, filename);
         
-        fprintf(stderr, "---Factorizing sequence %d\n", seqno);
-        double tlz = getTime();
-        totalNumFactors += lzFactorize(filename, seqno, argv[3], verbose);
-        fprintf(stderr, "---Time to lz factorize sequence %d = %.2f secs\n", seqno, getTime() - tlz);
-        fprintf(stdout, "%.2f,%d,%u,", getTime() - tlz, totalNumFactors, n);
-//        totalBitsOut += bits_out;
-        seqno++;
+//         fprintf(stderr, "---Factorizing sequence %d\n", seqno);
+//         double tlz = getTime();
+//         totalNumFactors += lzFactorize(filename, seqno, argv[3], verbose);
+//         fprintf(stderr, "---Time to lz factorize sequence %d = %.2f secs\n", seqno, getTime() - tlz);
+//         fprintf(stdout, "%.2f,%d,%u,", getTime() - tlz, totalNumFactors, n);
+// //        totalBitsOut += bits_out;
+//         seqno++;
         
-    }
+//     }
 //    fprintf(stderr, "----Collection parsed into %u factors.\n", totalNumFactors);
 //    fprintf(stderr, "----Total time: %.2f secs.\n", getTime() - ttotal);
 //    fprintf(stderr, "----Estimated encoded size (minus ref): %.2f megabytes.\n",
@@ -143,6 +148,6 @@ int main(int argc, char **argv) {
 
     free(filename);
     delete[] x;
-    delete[] sa;
+    //delete[] sa;
     return 0;
 }
