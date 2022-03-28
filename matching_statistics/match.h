@@ -7,13 +7,17 @@ struct Match{
    uint32_t start; //position in the collection 
    uint32_t pos; //position of match in _reference
    uint32_t len; //length of match
-   //unsigned char next; //symbol in the collection after the match
+   //data_type next; //symbol in the collection after the match
+   bool smaller;
    Match(){}
    //Match(uint32_t p, uint32_t l, unsigned char nxt){
    //   pos = p; len = l, next = nxt;
    //}
    Match(uint32_t s, uint32_t p, uint32_t l){
-      start = s; pos = p; len = l;
+      start = s; pos = p; len = l; 
+   }
+   Match(uint32_t s, uint32_t p, uint32_t l, bool sm){
+      start = s; pos = p; len = l; smaller = sm;
    }
    void changeS(uint32_t s){
       start = s;

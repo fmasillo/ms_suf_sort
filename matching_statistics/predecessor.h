@@ -156,6 +156,7 @@ struct predecessor2{
 					sampledPredArray[doc][i].start = sampledPredArray[doc][i-1].end;
 					sampledPredArray[doc][i].end = sampledPredArray[doc][i].end + sampledPredArray[doc][i].start;
 				}
+				//std::cerr << sampledPredArray[doc][i].end - sampledPredArray[doc][i].start << "\n";
 			}
 		}
 		auto t2 = std::chrono::high_resolution_clock::now();
@@ -164,9 +165,10 @@ struct predecessor2{
 	}
 
 	inline std::vector<Match>::iterator predQuery2(const Match query, std::vector<Match> &phrases){
-		uint8_t key = (query.start & mask) >> shift;
+		//uint8_t key = (query.start & mask) >> shift;
+		uint8_t key = query.start >> shift;
 		std::vector<Match>::iterator beg = phrases.begin();
-		// if(sampledPredArray[query.len-1][key].end - sampledPredArray[query.len-1][key].start < 10){
+		// if(sampledPredArray[query.len-1][key].end - sampledPredArray[query.len-1][key].start < 30){
 		// 	std::vector<Match>::iterator it;
 		// 	for(it = beg + sampledPredArray[query.len-1][key].start + docSizes[query.len-1]; it < beg + sampledPredArray[query.len-1][key].end + docSizes[query.len-1]; it++){
 		// 		if(it->start > query.start) return it-1;
@@ -182,9 +184,10 @@ struct predecessor2{
 	}
 
 	inline Match predQuery2(const Suf query, std::vector<Match> &phrases){
-		uint8_t key = (query.idx & mask) >> shift;
+		//uint8_t key = (query.idx & mask) >> shift;
+		uint8_t key = query.idx >> shift;
 		std::vector<Match>::iterator beg = phrases.begin();
-		// if(sampledPredArray[query.doc-1][key].end - sampledPredArray[query.doc-1][key].start < 10){
+		// if(sampledPredArray[query.doc-1][key].end - sampledPredArray[query.doc-1][key].start < 30){
 		// 	std::vector<Match>::iterator it;
 		// 	for(it = beg + sampledPredArray[query.doc-1][key].start + docSizes[query.doc-1]; it < beg + sampledPredArray[query.doc-1][key].end + docSizes[query.doc-1]; it++){
 		// 		if(it->start > query.idx) return *(it-1);

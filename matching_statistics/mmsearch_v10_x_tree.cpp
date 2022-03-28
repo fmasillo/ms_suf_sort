@@ -14,7 +14,9 @@
 #include "rmq_tree.h"
 #include "utils.h"
 #include "match.h"
-#include "predecessor.h"
+//#include "predecessor.h"
+#include "xfast.h"
+#include <unordered_map>
 //#include "libdivsufsort/build/include/divsufsort.h"
 
 #define likely(x)       __builtin_expect((x),1)
@@ -35,7 +37,12 @@ static filelength_type _sn;
 static bool _isMismatchingSymbolNeeded;
 static std::vector<uint32_t> docBoundaries;
 static std::vector<uint32_t> headBoundaries;
-static predecessor2 pHeads;
+
+typedef uint32_t Key;
+typedef uint32_t Value;
+typedef std::unordered_map<Key, void*> Hash;
+typedef yfast::xfast<Key, Value, Hash> XFast;
+static std::vector<XFast> pHeads;
 
 uint64_t tiesCounter = 0;
 
@@ -149,41 +156,27 @@ bool sortHeadsSA(const Match &a, const Match &b){
       return _ISA[headA->pos] < _ISA[headB->pos];
    }
 
-   // uint32_t nextMM = std::min(headA->len, headB->len);
-   // if (_sx[headA->start + docBoundaries[a.len - 1] + nextMM] != _sx[headB->start + docBoundaries[b.len - 1] + nextMM]){
-   //    diffLenCounter++;
-   //    return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
-   // }
-   if(headA->len != headB->len){
+   uint32_t nextMM = std::min(headA->len, headB->len);
+   if (_sx[headA->start + docBoundaries[a.len - 1] + nextMM] != _sx[headB->start + docBoundaries[b.len - 1] + nextMM]){
       diffLenCounter++;
-      return (headA->len < headB->len) ? headA->smaller : !headB->smaller;
+      return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
    }
    if(((headA+1)->start == 0) & ((headB+1)->start == 0)){
       return a.len < b.len;
    }
    
-   // headA++;
-   // headB++;
+   headA++;
+   headB++;
    uint64_t counter = 0;
    uint32_t nextStartA, nextStartB;
    Match headNextStart;
-   
    while(headA->len == headB->len){
       sumCounter++;
       counter++;
       if(maxCounter < counter) maxCounter = counter;
-
-      nextStartA = headA->start + headA->len;
-      nextStartB = headB->start + headB->len;
-      headNextStart = Match(nextStartA, 0, a.len);
-      headA = pHeads.predQuery2(headNextStart, phrases);
-      headNextStart = Match(nextStartB, 0, b.len);
-      headB = pHeads.predQuery2(headNextStart, phrases);
-      if((headA->start - nextStartA) != (headB->start - nextStartB)){
-         denCounter++;
-         return _ISA[headA->pos + (nextStartA - headA->start)] < _ISA[headB->pos + (nextStartB - headB->start)];
-      }
-      
+      // if((headA.start + 1 == docBoundaries[a.len]) & (headB.start + 1 == docBoundaries[b.len])){
+      //    return a.len < b.len;
+      // }
       if(((headA+1)->start == 0) & ((headB+1)->start == 0)){
          return a.len < b.len;
       }
@@ -191,13 +184,34 @@ bool sortHeadsSA(const Match &a, const Match &b){
          denCounter++;
          return _ISA[headA->pos] < _ISA[headB->pos];
       }
+      if(_sx[headA->start + docBoundaries[a.len - 1 ] + headA->len] != _sx[headB->start + docBoundaries[b.len - 1] + headB->len]){
+        return _sx[headA->start + docBoundaries[a.len - 1 ] + headA->len] < _sx[headB->start + docBoundaries[b.len - 1] + headB->len];
+      }
+      nextStartA = headA->start + headA->len;
+      nextStartB = headB->start + headB->len;
+      //headNextStart = Match(nextStartA, 0, a.len);
       
+      XFast::Leaf* headAStart = pHeads[a.len-1].pred(nextStartA);
+      headA = phrases.begin() + headAStart->value + headBoundaries[a.len - 1];
+      //headA = pHeads.predQuery2(headNextStart, phrases);
+      //headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len], headNextStart, 
+      //      [](const Match first, const Match second){return first.start < second.start;}) - 1;
+      //headNextStart = Match(nextStartB, 0 ,b.len);
+
+      XFast::Leaf* headBStart = pHeads[b.len-1].pred(nextStartB);   
+      headB = phrases.begin() + headBStart->value + headBoundaries[b.len - 1];
+      //headB = pHeads.predQuery2(headNextStart, phrases);
+      //headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len], headNextStart, 
+      //      [](const Match first, const Match second){return first.start < second.start;}) - 1;
+      if((headA->start - nextStartA) != (headB->start - nextStartB)){
+         denCounter++;
+         return _ISA[headA->pos - (headA->start - nextStartA)] < _ISA[headB->pos - (headB->start - nextStartB)];
+      }
    }
    denCounter++;
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
-   return (headA->len < headB->len) ? headA->smaller : !headB->smaller;
-   // nextMM = std::min(headA->len, headB->len);
-   // return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
+   nextMM = std::min(headA->len, headB->len);
+   return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
 }
 
 bool compareSuf(const SufSStar &a, const SufSStar &b){
@@ -207,26 +221,39 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
    // if(((a.idx - headA->start) == 0) & ((b.idx - headB->start) == 0)){
    //    return headA->pos < headB->pos;
    // }
-   if(headsSA[headA.pos].pos + (a.idx - headA.start) != headsSA[headB.pos].pos + (b.idx - headB.start)){
+   if(_ISA[headsSA[headA.pos].pos + (a.idx - headA.start)] != _ISA[headsSA[headB.pos].pos + (b.idx - headB.start)]){
       diffSufPos++;
       return _ISA[headsSA[headA.pos].pos + (a.idx - headA.start)] < _ISA[headsSA[headB.pos].pos + (b.idx - headB.start)];
    }
-   else if(headA.len - (a.idx - headA.start) != headB.len - (b.idx - headB.start)){
+   if(headA.len - (a.idx - headA.start) != headB.len - (b.idx - headB.start)){
       diffSufLen++;
-      //uint32_t nextMM = std::min(headA.len - (a.idx - headA.start), headB.len - (b.idx - headB.start));
-      //return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
-      return (headA.len - (a.idx - headA.start) < headB.len - (b.idx - headB.start)) ?
-         headA.smaller : !headB.smaller;
+      uint32_t nextMM = std::min(headA.len - (a.idx - headA.start), headB.len - (b.idx - headB.start));
+      return _sx[a.idx + docBoundaries[a.doc - 1] + nextMM] < _sx[b.idx + docBoundaries[b.doc - 1] + nextMM];
    }
    else{
       diffSufHeads++;
+      //std::cerr << "predSize " << pHeads.nDocs << " docArray.size" << pHeads.docSizes.size() << "\n";
+      //std::cerr << "a.doc " << a.doc << ", b.doc " << b.doc << "\n";
       uint32_t nextStartA = headA.start + headA.len;
       uint32_t nextStartB = headB.start + headB.len;
-      Suf headNextStart = Suf(nextStartA, a.doc);
-      headA = pHeads.predQuery2(headNextStart, phrases);
-      headNextStart = Suf(nextStartB, b.doc);
-      headB = pHeads.predQuery2(headNextStart, phrases);
-      return ((headA.start - nextStartA) != (headB.start - nextStartB)) ? _ISA[headsSA[headA.pos].pos - (headA.start - nextStartA)] < _ISA[headsSA[headB.pos].pos - (headB.start - nextStartB)] : headA.pos < headB.pos;
+      //Suf headNextStart = Suf(nextStartA, a.doc);
+      
+      //std::cerr << "before predQueryA\n";
+      XFast::Leaf* headAStart = pHeads[a.doc-1].pred(nextStartA);
+      //std::cerr << "before predQueryA\n";
+      // headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], headNextStart, 
+      //    [](const Match first, const Match second){return first.start < second.start;}) - 1;
+      // headNextStart.changeS(nextStartB);
+      // headNextStart.changeD(b.doc);
+      //headNextStart = Suf(nextStartB, b.doc);
+      
+      //std::cerr << "before predQueryB\n";
+      XFast::Leaf* headBStart = pHeads[b.doc-1].pred(nextStartB);
+      //std::cerr << "before predQueryB\n";
+      // headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], headNextStart, 
+      //    [](const Match first, const Match second){return first.start < second.start;}) - 1;
+      //return ((headA.start - nextStartA) != (headB.start - nextStartB)) ? _ISA[headsSA[headA.pos].pos - (headA.start - nextStartA)] < _ISA[headsSA[headB.pos].pos - (headB.start - nextStartB)] : headA.pos < headB.pos;
+      return ((headAStart->key - nextStartA) != (headBStart->key - nextStartB)) ? _ISA[headsSA[phrases[headAStart->value + headBoundaries[a.doc - 1]].pos].pos - (headAStart->key - nextStartA)] < _ISA[headsSA[phrases[headBStart->value].pos + headBoundaries[b.doc - 1]].pos - (headBStart->key - nextStartB)] : phrases[headAStart->value + headBoundaries[a.doc - 1]].pos < phrases[headBStart->value + headBoundaries[b.doc - 1]].pos;
    }
 }
 
@@ -445,6 +472,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    uint64_t nStar = 0;
    uint64_t *charBkts = new uint64_t[sizeChars]();
    uint64_t maxValue = 0;
+   XFast currentYTree;
    while(i < _sn) {
       //std::cout << "i: " << i << "\n";
       if(i > mark){
@@ -459,7 +487,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       //if(i > 1){
       //if(typeArray[i] == 0 & typeArray[i-1] == 1){
          //phrases.push_back(std::make_pair(match,len));
-         phrases.push_back(Match(iCurrentDoc, pos, len, isSmallerThanMatch));
+         phrases.push_back(Match(iCurrentDoc, pos, len));
+         currentYTree.insert(iCurrentDoc, lpfRuns);
          //bucketLengthsHeads[_ISA[pos]]++;
          bucketLengthsHeads[_sx[i]]++;
          //std::cout << "New Phrase\nleftB: " << leftB << " pos: " << pos << " len: " << len << '\n';
@@ -492,12 +521,15 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       iCurrentDoc++;
       //len == 0 || 
       if(_sx[i] == '%'){ //new doc found
+         pHeads.push_back(currentYTree);
+         currentYTree = XFast();
          pos = (((uint32_t)_sx[i]) | (1<<31)); 
          docBoundaries.push_back(iCurrentDoc + docBoundaries[ndoc-1]); 
          headBoundaries.push_back(phrases.size());
          if(maxValue < iCurrentDoc) maxValue = iCurrentDoc;
          iCurrentDoc = 0; 
          ndoc++;
+         lpfRuns = 0;
       }
       if (len == 0){
          lenZeroFactors++;
@@ -528,7 +560,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    }
    std::cerr << headBoundaries.size() << ", " << ndoc << "\n";
    std::cerr << "phrases.size() = " << phrases.size() << "\n";
-   pHeads = predecessor2(phrases, headBoundaries, ndoc, maxValue);
+   // pHeads = predecessor2(phrases, headBoundaries, ndoc, maxValue);
    // pHeads = predecessor(phrases, headBoundaries, ndoc);
    // Match a = pHeads.predQuery(Suf(7201,1), phrases);
    // std::cerr << "Found head " << a.start << "," << a.pos << "," << a.len << "\n";
@@ -773,7 +805,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    uint64_t induceTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    std::cerr << "Induced in: " << induceTime << " milliseconds\n";
 
-   int checkGSA = 0;
+   int checkGSA = 1;
    if(checkGSA){
       std::cerr << "Checking GSA\n"; 
       uint32_t err = 0;
