@@ -183,11 +183,11 @@ bool sortHeadsSA(const Match &a, const Match &b){
       nextStartA = headA->start + headA->len;
       nextStartB = headB->start + headB->len;
       headNextStart = Match(nextStartA, 0, a.len);
-      headA = pHeads.predQuery2(headNextStart, phrases);
+      headA = pHeads.predQuery(headNextStart, phrases);
       //headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len], headNextStart, 
       //      [](const Match first, const Match second){return first.start < second.start;}) - 1;
       headNextStart = Match(nextStartB, 0 ,b.len);
-      headB = pHeads.predQuery2(headNextStart, phrases);
+      headB = pHeads.predQuery(headNextStart, phrases);
       //headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len], headNextStart, 
       //      [](const Match first, const Match second){return first.start < second.start;}) - 1;
       if((headA->start - nextStartA) != (headB->start - nextStartB)){
@@ -225,7 +225,7 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
       uint32_t nextStartB = headB.start + headB.len;
       Suf headNextStart = Suf(nextStartA, a.doc);
       //std::cerr << "before predQueryA\n";
-      headA = pHeads.predQuery2(headNextStart, phrases);
+      headA = pHeads.predQuery(headNextStart, phrases);
       //std::cerr << "before predQueryA\n";
       // headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.doc], headNextStart, 
       //    [](const Match first, const Match second){return first.start < second.start;}) - 1;
@@ -233,7 +233,7 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
       // headNextStart.changeD(b.doc);
       headNextStart = Suf(nextStartB, b.doc);
       //std::cerr << "before predQueryB\n";
-      headB = pHeads.predQuery2(headNextStart, phrases);
+      headB = pHeads.predQuery(headNextStart, phrases);
       //std::cerr << "before predQueryB\n";
       // headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.doc], headNextStart, 
       //    [](const Match first, const Match second){return first.start < second.start;}) - 1;

@@ -143,7 +143,7 @@ struct predecessor2{
 			if(i == headBoundaries[currentDoc]){
 				currentDoc++;
 			}
-			uint8_t key = (phrases[i].start & mask) >> shift;
+			uint8_t key = phrases[i].start >> shift;
 			sampledPredArray[currentDoc-1][key].end++;
 		}
 		for(uint32_t doc = 0; doc < numDocs-1; doc++){
@@ -164,7 +164,7 @@ struct predecessor2{
 		std::cerr << "Finished building predecessor data structure in " << constructionTime << " milliseconds\n";
 	}
 
-	inline std::vector<Match>::iterator predQuery2(const Match query, std::vector<Match> &phrases){
+	inline std::vector<Match>::iterator predQuery(const Match query, std::vector<Match> &phrases){
 		//uint8_t key = (query.start & mask) >> shift;
 		uint8_t key = query.start >> shift;
 		std::vector<Match>::iterator beg = phrases.begin();
@@ -183,7 +183,7 @@ struct predecessor2{
 		// }
 	}
 
-	inline Match predQuery2(const Suf query, std::vector<Match> &phrases){
+	inline Match predQuery(const Suf query, std::vector<Match> &phrases){
 		//uint8_t key = (query.idx & mask) >> shift;
 		uint8_t key = query.idx >> shift;
 		std::vector<Match>::iterator beg = phrases.begin();
@@ -203,4 +203,129 @@ struct predecessor2{
 	}
 };
 
-#endif // __RMQ_TREE_H
+static const int64_t nOfDigitsBig[] =
+        {
+            1 << 16, 1 << 17, 1 << 18, 1 << 19,
+			1 << 20, 1 << 21, 1 << 22, 1 << 23,
+			1 << 24, 1 << 25, 1 << 26, 1 << 27,
+			1 << 28, 1 << 29, 1 << 30, 1 << 31,
+			1 << 32, 1 << 33, 1 << 34, 1 << 35,
+			1 << 36, 1 << 37, 1 << 38, 1 << 39,
+			1 << 40, 1 << 41, 1 << 42, 1 << 43,
+			1 << 44, 1 << 45, 1 << 46, 1 << 47,
+			1 << 48, 1 << 49, 1 << 50, 1 << 51,
+			1 << 52, 1 << 53, 1 << 54, 1 << 55,
+			1 << 56, 1 << 57, 1 << 58, 1 << 59,        
+			1 << 60, 1 << 61, 1 << 62, 1 << 63      
+        };
+struct predEle3{
+	uint64_t start;
+	uint64_t end;
+	predEle3(){
+		start = 0; end = 0;
+	}
+	predEle3(uint64_t s, uint64_t e){
+		start = s; end = e;
+	}
+};
+struct predecessor3{
+	//std::vector<predEle3 *> sampledPredArray;
+	predEle3 *sampledPredArray;
+	std::vector<uint32_t> docSizes;
+	//uint32_t nDocs;
+	uint64_t mask;
+	uint8_t shift;
+	predecessor3(){}
+	predecessor3(std::vector<Match> phrases, std::vector<uint32_t> docBoundaries, uint64_t numDocs, uint64_t maxValue){
+		auto t1 = std::chrono::high_resolution_clock::now();
+		//nDocs = numDocs;
+		//sampledPredArray.resize(numDocs);
+		//uint32_t *nHeadsSampled = new uint32_t[numDocs];
+		std::cerr << docBoundaries[0] << "\n";
+		docSizes.push_back(0);
+		for(uint32_t i = 1; i < numDocs; i++){
+			//nHeadsSampled[i] = headBoundaries[i] - headBoundaries[i-1];
+			//std::cerr << "nHeads for doc_" << i << ": " << nHeadsSampled[i] << "\n";
+			//sampledPredArray[i-1] = new predEle3[256]();
+			docSizes.push_back(docBoundaries[i]);
+		}
+		sampledPredArray = new predEle3[(1<<16)]();
+		uint64_t max = maxValue;
+		std::bitset<64> m(max);
+		std::cerr << maxValue << " " << m << "\n";
+		for(uint8_t i = 0; i < 48; i++){
+			if(maxValue < nOfDigitsBig[i]){
+				shift = i;
+				mask = (nOfDigitsBig[0]-1) << shift;
+				std::bitset<64> y(mask);
+				std::cerr << y << "\n";
+				break;
+			}
+		} 
+		//uint32_t currentDoc = 0;
+		for(uint32_t i = 0; i < phrases.size(); i++){
+			// if(i == docBoundaries[currentDoc]){
+			// 	currentDoc++;
+			// }
+			uint16_t key = phrases[i].start >> shift;
+			sampledPredArray[key].end++;
+		}
+		std::cerr << "Finished parsing phrases\n";
+		//for(uint32_t doc = 0; doc < numDocs-1; doc++){
+			for(uint32_t i = 1; i < (1<<16); i++){
+				if(sampledPredArray[i].end == 0){
+					sampledPredArray[i].start = sampledPredArray[i-1].start;
+					sampledPredArray[i].end = sampledPredArray[i-1].end;
+				}
+				else{
+					sampledPredArray[i].start = sampledPredArray[i-1].end;
+					sampledPredArray[i].end = sampledPredArray[i].end + sampledPredArray[i].start;
+				}
+				//std::cerr << sampledPredArray[i].start << " " << sampledPredArray[i].end << "\n";
+			}
+		//}
+		auto t2 = std::chrono::high_resolution_clock::now();
+		uint64_t constructionTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+		std::cerr << "Finished building predecessor data structure in " << constructionTime << " milliseconds\n";
+	}
+
+	inline std::vector<Match>::iterator predQuery(const Match query, std::vector<Match> &phrases){
+		//uint8_t key = (query.start & mask) >> shift;
+		uint16_t key = (query.start) >> shift;
+		std::vector<Match>::iterator beg = phrases.begin();
+		// if(sampledPredArray[query.len-1][key].end - sampledPredArray[query.len-1][key].start < 30){
+		// 	std::vector<Match>::iterator it;
+		// 	for(it = beg + sampledPredArray[query.len-1][key].start + docSizes[query.len-1]; it < beg + sampledPredArray[query.len-1][key].end + docSizes[query.len-1]; it++){
+		// 		if(it->start > query.start) return it-1;
+		// 	}
+		// 	return it-1;
+		// }
+		// else{
+			return std::upper_bound(beg + sampledPredArray[key].start, 
+			beg + sampledPredArray[key].end, Match(query.start, 0, 0), 
+			[&](const Match first, const Match second){return first.start < second.start;}
+			) - 1;
+		// }
+	}
+
+	inline Match predQuery(const Suf query, std::vector<Match> &phrases){
+		//uint8_t key = (query.idx & mask) >> shift;
+		uint16_t key = (query.idx) >> shift;
+		std::vector<Match>::iterator beg = phrases.begin();
+		// if(sampledPredArray[query.doc-1][key].end - sampledPredArray[query.doc-1][key].start < 30){
+		// 	std::vector<Match>::iterator it;
+		// 	for(it = beg + sampledPredArray[query.doc-1][key].start + docSizes[query.doc-1]; it < beg + sampledPredArray[query.doc-1][key].end + docSizes[query.doc-1]; it++){
+		// 		if(it->start > query.idx) return *(it-1);
+		// 	}
+		// 	return *(it-1);
+		// }
+		// else{
+			return *(std::upper_bound(beg + sampledPredArray[key].start, 
+			beg + sampledPredArray[key].end, Match(query.idx, 0, 0), 
+			[](const Match first, const Match second){return first.start < second.start;}
+			) - 1);
+		// }
+	}
+};
+
+#endif // __PREDECESSOR_H

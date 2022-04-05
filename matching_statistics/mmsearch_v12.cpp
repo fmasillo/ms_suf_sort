@@ -176,9 +176,9 @@ bool sortHeadsSA(const Match &a, const Match &b){
       nextStartA = headA->start + headA->len;
       nextStartB = headB->start + headB->len;
       headNextStart = Match(nextStartA, 0, a.len);
-      headA = pHeads.predQuery2(headNextStart, phrases);
+      headA = pHeads.predQuery(headNextStart, phrases);
       headNextStart = Match(nextStartB, 0, b.len);
-      headB = pHeads.predQuery2(headNextStart, phrases);
+      headB = pHeads.predQuery(headNextStart, phrases);
       if((headA->start - nextStartA) != (headB->start - nextStartB)){
          denCounter++;
          return _ISA[headA->pos + (nextStartA - headA->start)] < _ISA[headB->pos + (nextStartB - headB->start)];
@@ -223,9 +223,9 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
       uint32_t nextStartA = headA.start + headA.len;
       uint32_t nextStartB = headB.start + headB.len;
       Suf headNextStart = Suf(nextStartA, a.doc);
-      headA = pHeads.predQuery2(headNextStart, phrases);
+      headA = pHeads.predQuery(headNextStart, phrases);
       headNextStart = Suf(nextStartB, b.doc);
-      headB = pHeads.predQuery2(headNextStart, phrases);
+      headB = pHeads.predQuery(headNextStart, phrases);
       return ((headA.start - nextStartA) != (headB.start - nextStartB)) ? _ISA[headsSA[headA.pos].pos - (headA.start - nextStartA)] < _ISA[headsSA[headB.pos].pos - (headB.start - nextStartB)] : headA.pos < headB.pos;
    }
 }

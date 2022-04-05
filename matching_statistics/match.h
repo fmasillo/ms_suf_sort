@@ -34,9 +34,13 @@ struct SufSStar{
    uint32_t idx;
    uint32_t doc;
    uint32_t head;
-   SufSStar(){idx = 0; doc = 0; head = 0;}
+   uint32_t diffLen;
+   SufSStar(){idx = 0; doc = 0; head = 0; diffLen = 0;}
    SufSStar(uint32_t i, uint32_t d, uint32_t h){
       idx = i; doc = d; head = h;
+   }
+   SufSStar(uint32_t i, uint32_t d, uint32_t h, uint32_t dL){
+      idx = i; doc = d; head = h; diffLen = dL;
    }
 };
 

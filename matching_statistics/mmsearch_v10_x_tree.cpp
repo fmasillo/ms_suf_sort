@@ -193,14 +193,14 @@ bool sortHeadsSA(const Match &a, const Match &b){
       
       XFast::Leaf* headAStart = pHeads[a.len-1].pred(nextStartA);
       headA = phrases.begin() + headAStart->value + headBoundaries[a.len - 1];
-      //headA = pHeads.predQuery2(headNextStart, phrases);
+      //headA = pHeads.predQuery(headNextStart, phrases);
       //headA = std::upper_bound(headA, phrases.begin() + headBoundaries[a.len], headNextStart, 
       //      [](const Match first, const Match second){return first.start < second.start;}) - 1;
       //headNextStart = Match(nextStartB, 0 ,b.len);
 
       XFast::Leaf* headBStart = pHeads[b.len-1].pred(nextStartB);   
       headB = phrases.begin() + headBStart->value + headBoundaries[b.len - 1];
-      //headB = pHeads.predQuery2(headNextStart, phrases);
+      //headB = pHeads.predQuery(headNextStart, phrases);
       //headB = std::upper_bound(headB, phrases.begin() + headBoundaries[b.len], headNextStart, 
       //      [](const Match first, const Match second){return first.start < second.start;}) - 1;
       if((headA->start - nextStartA) != (headB->start - nextStartB)){

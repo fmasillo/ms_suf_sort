@@ -225,18 +225,48 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
             !headB.smaller*((headA.len - (a.idx - headA.start) > headB.len - (b.idx - headB.start)));
    }
    else{
+      if(headsSA[headA.pos].pos != headsSA[headB.pos].pos) return headsSA[headA.pos].pos < headsSA[headB.pos].pos;
       diffSufHeads++;
       uint32_t nextStartA = headA.start + headA.len;
       uint32_t nextStartB = headB.start + headB.len;
       Suf headNextStart = Suf(nextStartA, a.doc);
-      headA = pHeads.predQuery(headNextStart, phrases);
+      Match nextHeadA = pHeads.predQuery(headNextStart, phrases);
       headNextStart = Suf(nextStartB, b.doc);
-      headB = pHeads.predQuery(headNextStart, phrases);
-      return ((headA.start - nextStartA) != (headB.start - nextStartB)) ? _ISA[headsSA[headA.pos].pos - (headA.start - nextStartA)] < _ISA[headsSA[headB.pos].pos - (headB.start - nextStartB)] : headA.pos < headB.pos;
-      //return ((headA.start - nextStartA) != (headB.start - nextStartB))*(_ISA[headsSA[headA.pos].pos - (headA.start - nextStartA)] < _ISA[headsSA[headB.pos].pos - (headB.start - nextStartB)]) + ((headA.start - nextStartA) == (headB.start - nextStartB))*(headA.pos < headB.pos);
+      Match nextHeadB = pHeads.predQuery(headNextStart, phrases);
+      //return ((headA.start - nextStartA) != (headB.start - nextStartB)) ? _ISA[headsSA[headA.pos].pos - (headA.start - nextStartA)] < _ISA[headsSA[headB.pos].pos - (headB.start - nextStartB)] : headA.pos < headB.pos;
+      return nextHeadA.pos < nextHeadB.pos;
    }
 }
 
+uint64_t checkHeadsSA(std::vector<Match> GSA, uint64_t n){
+   uint64_t err = 0;
+   for(size_t i = 0; i < n; i++){
+       if(verbose) std::cerr << "i=" << i << ": " << GSA[i].start << " " << GSA[i].len << " " << "\n";//MSGSA[i].head <<"\n";
+      //  if(GSA[i].len == 0 || GSA[i-1].len == 0){
+      //     std::cerr << "There was an empty entry\n";
+      //     continue;
+      //  }
+       data_type *_slice_sx = _sx + phrases[GSA[i].start].start + docBoundaries[GSA[i].len - 1];
+       data_type *_slice_prev;
+       uint32_t maxIdx;
+       if(i > 0){
+         _slice_prev = _sx + phrases[GSA[i-1].start].start + docBoundaries[GSA[i-1].len - 1];
+         maxIdx = std::min(docBoundaries[GSA[i].len] - (phrases[GSA[i].start].start + docBoundaries[GSA[i].len - 1]), docBoundaries[GSA[i-1].len] - (phrases[GSA[i-1].start].start + docBoundaries[GSA[i-1].len - 1]));
+       } 
+       else{
+          _slice_prev = (data_type *)"$";
+          maxIdx = 1;
+       }
+       if(verbose) std::cerr << "suf_i-1 " << _slice_prev;
+       if(verbose) std::cerr << "suf_i " << _slice_sx << "\n";
+       
+      if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
+         if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << GSA[i-1].start << "," << GSA[i-1].len << ") and " << i << " (" << GSA[i].start << "," << GSA[i].len << ")\n"; 
+         err++;
+      }
+    }
+    return err;
+}
 
 uint64_t checkGSA(std::vector<SufSStar> GSA, uint64_t n){
    uint64_t err = 0;
@@ -654,10 +684,18 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    
    t1 = std::chrono::high_resolution_clock::now();
    for(size_t i = 0; i < headsSA.size(); i++){
+      //_ISA[headsSA[headA.pos].pos + (nextStartA - headA.start)]
+      uint32_t nextStart = phrases[headsSA[i].start].start + phrases[headsSA[i].start].len;
+      Match headNextStart = Match(nextStart, 0, headsSA[i].len);
+      Match nextHead = *(pHeads.predQuery(headNextStart, phrases));
+      headsSA[i].pos = _ISA[nextHead.pos + (nextStart - nextHead.start)];
+   }
+   for(size_t i = 0; i < headsSA.size(); i++){
       phrases[headsSA[i].start].changeP(i);
    }
-   std::cerr << "Starting to sort S*-suffixes\n";
    std::vector<SufSStar>::iterator begStar = sStar.begin();
+   std::cerr << "Starting to sort S*-suffixes\n";
+   
    for(uint16_t i = 1; i < _n + 1; i++){
       if(verbose) std::cerr << i << " " << prefSumBucketLengthsStar[i-1] << " " << prefSumBucketLengthsStar[i] << "\n";
       std::sort(begStar + prefSumBucketLengthsStar[i-1], begStar + prefSumBucketLengthsStar[i], compareSuf);
@@ -784,7 +822,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    uint64_t induceTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    std::cerr << "Induced in: " << induceTime << " milliseconds\n";
 
-   int checkGSA = 0;
+   int checkGSA = 1;
    if(checkGSA){
       std::cerr << "Checking GSA\n"; 
       uint32_t err = 0;
