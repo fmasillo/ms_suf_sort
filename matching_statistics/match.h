@@ -46,7 +46,7 @@ struct SufSStar{
 
 struct Suf{
    uint32_t idx;
-   uint32_t doc;
+   int32_t doc;
    Suf(){idx = 0; doc = 0;}
    Suf(uint32_t i, uint32_t d){
       idx = i; doc = d;
@@ -54,9 +54,9 @@ struct Suf{
    Suf(SufSStar &s){
       idx = s.idx; doc = s.doc;
    }
-   // void changeDocSign(){
-   //    doc = ~doc;
-   // }
+   void changeDocSign(){
+      doc = ~doc;
+   }
 };
 
 #endif

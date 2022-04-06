@@ -155,7 +155,7 @@ bool sortHeadsSA(const Match &a, const Match &b){
    //    return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
    // }
    if(headA->len != headB->len){
-      diffLenCounter++;
+      //diffLenCounter++;
       //return (headA->len < headB->len) ? headA->smaller : !headB->smaller;
       //try that
       return headA->smaller*(headA->len < headB->len) + !headB->smaller*(headA->len > headB->len);
@@ -166,14 +166,14 @@ bool sortHeadsSA(const Match &a, const Match &b){
    
    // headA++;
    // headB++;
-   uint64_t counter = 0;
+   //uint64_t counter = 0;
    uint32_t nextStartA, nextStartB;
    Match headNextStart;
    
    while(headA->len == headB->len){
-      sumCounter++;
-      counter++;
-      if(maxCounter < counter) maxCounter = counter;
+      //sumCounter++;
+      //counter++;
+      //if(maxCounter < counter) maxCounter = counter;
 
       nextStartA = headA->start + headA->len;
       nextStartB = headB->start + headB->len;
@@ -182,7 +182,7 @@ bool sortHeadsSA(const Match &a, const Match &b){
       headNextStart = Match(nextStartB, 0, b.len);
       headB = pHeads.predQuery(headNextStart, phrases);
       if((headA->start - nextStartA) != (headB->start - nextStartB)){
-         denCounter++;
+         //denCounter++;
          return _ISA[headA->pos + (nextStartA - headA->start)] < _ISA[headB->pos + (nextStartB - headB->start)];
       }
       
@@ -190,12 +190,12 @@ bool sortHeadsSA(const Match &a, const Match &b){
          return a.len < b.len;
       }
       if(headA->pos != headB->pos){
-         denCounter++;
+         //denCounter++;
          return _ISA[headA->pos] < _ISA[headB->pos];
       }
       
    }
-   denCounter++;
+   //denCounter++;
    if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
    //return (headA->len < headB->len) ? headA->smaller : !headB->smaller;
    return headA->smaller*(headA->len < headB->len) + !headB->smaller*(headA->len > headB->len);
@@ -217,7 +217,7 @@ bool compareSuf(const SufSStar &a, const SufSStar &b){
    // else
    //if(headA.len - (a.idx - headA.start) != headB.len - (b.idx - headB.start)){
    if(headA.len - a.diffLen != headB.len - b.diffLen){
-      diffSufLen++;
+      //diffSufLen++;
       return headA.smaller*((headA.len - a.diffLen) < (headB.len - b.diffLen)) + 
             !headB.smaller*((headA.len - a.diffLen) > (headB.len - b.diffLen));
    }
@@ -357,6 +357,8 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
     }
     refAug += '$';
     refAug += '\n';
+    docBoundaries.reserve(maxRunsCollection['%']);
+    headBoundaries.reserve(maxRunsCollection['%']);
     //std::cerr << refAug << "\n";
     
     char refAugFileName[256];
@@ -403,7 +405,7 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
     _LCP = new uint32_t[_n];
     constructLCP(_x,_n,_SA,_LCP,_ISA);
     for(uint32_t i=0;i<_n;i++){
-       if(_LCP[i] > _maxLCP) _maxLCP = _LCP[i];
+       if(_LCP[i] > _maxLCP & _x[_SA[i]] != 'N') _maxLCP = _LCP[i];
     }
     std::cerr << "_maxLCP = " << _maxLCP << '\n';
     constructISA(_SA,_ISA,_n);
@@ -494,8 +496,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
          bucketLengthsHeads[_ISA[pos]]++;
          //std::cout << "New Phrase\nleftB: " << leftB << " pos: " << pos << " len: " << len << '\n';
          lpfRuns++;
-         if(maxFactorLength < len){ maxFactorLength = len; }
-         if(len <= _maxLCP){ _numberOfShortFactors++; }
+         //if(maxFactorLength < len){ maxFactorLength = len; }
+         //if(len <= _maxLCP){ _numberOfShortFactors++; }
          numfactors++;
          //if(leftB == rightB){
             //suffixesBefore[match]++;
@@ -719,6 +721,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       std::sort(begStar + prefSumBucketLengthsStar[i-1], begStar + prefSumBucketLengthsStar[i], compareSuf);
    }
    headsSA.clear();
+   
    if(verbose) for(size_t x = 0; x < nStar; x++) {
       if(sStar[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
       if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << sStar[x].head << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
@@ -751,7 +754,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    }
    prefSumCharBkts[sizeChars] = _sn;
    for(size_t i = 0; i < sizeChars; i++){
-      prefSumCharBktsEnds[i] = prefSumCharBkts[i+1]-1;
+      prefSumCharBktsEnds[i] = prefSumCharBkts[i+1];
    }
 
    std::cerr << "Going to convert types\n";
@@ -795,18 +798,23 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    uint32_t maskSign = 1 << 31;
    uint32_t maxNumber = (1 << 31) - 1;
    std::cerr << "Start inducing L-types\n";
-   data_type c1;// = _sx[_sn-1];
+   data_type c1 = _sx[_sn-1];
+   data_type c0;
    //std::cerr << "c1 " << c1 << "\n";
    Suf j;
-   for(uint64_t i = 0; i < _sn; i++){
+   std::vector<Suf>::iterator begGSA = MSGSA.begin();
+   std::vector<Suf>::iterator b = MSGSA.begin() + prefSumCharBkts[c1];
+   *b++ = ((0 < _sn-1) && (_sx[_sn - 2] < c1)) ? Suf(MSGSA[0].idx, ~MSGSA[0].doc) : MSGSA[0];
+   for(uint64_t i = 0; i < _sn; ++i){
       if(MSGSA[i].idx > 0){
          j = MSGSA[i]; 
          //MSGSA[i].doc = (maxNumber > MSGSA[i].doc) ? MSGSA[i].doc | maskSign : MSGSA[i].doc & maxNumber;
          MSGSA[i].changeDocSign();
          //if(maxNumber > j.doc){
          if(0 < j.doc){
-            c1 = _sx[j.idx + docBoundaries[j.doc - 1] - 1];
-            MSGSA[prefSumCharBkts[c1]++] = ((0 < j.idx - 1) && (_sx[j.idx + docBoundaries[j.doc - 1] - 2] < c1)) ? Suf(j.idx - 1, ~j.doc) : Suf(j.idx - 1, j.doc);
+            if((c0 = _sx[j.idx + docBoundaries[j.doc - 1] - 1]) != c1) { prefSumCharBkts[c1] = b - begGSA; b = begGSA + prefSumCharBkts[c1 = c0]; }
+            //MSGSA[prefSumCharBkts[c1]++] = ((0 < j.idx - 1) && (_sx[j.idx + docBoundaries[j.doc - 1] - 2] < c1)) ? Suf(j.idx - 1, ~j.doc) : Suf(j.idx - 1, j.doc);
+            *b++ = ((0 < j.idx - 1) && (_sx[j.idx + docBoundaries[j.doc - 1] - 2] < c1)) ? Suf(j.idx - 1, ~j.doc) : Suf(j.idx - 1, j.doc);
          }
       }
    }
@@ -822,14 +830,15 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    }
    
    std::cerr << "Start inducing S-types\n";
+   b = MSGSA.begin() + prefSumCharBktsEnds[c1 = 0];
    for(uint64_t i = _sn - 1; i < _sn; i--){
       //if(verbose) std::cerr << "i: " << i << " " << j.idx << "," << j.doc << "\n";
       if(MSGSA[i].idx > 0){
          //if(maxNumber > MSGSA[i].doc){
          if(0 < MSGSA[i].doc){
             j = MSGSA[i];
-            c1 = _sx[j.idx + docBoundaries[j.doc - 1] - 1];
-            MSGSA[prefSumCharBktsEnds[c1]--] = ((0 == j.idx - 1) || (_sx[j.idx + docBoundaries[j.doc - 1] - 2] > c1)) ? Suf(j.idx - 1, ~j.doc) : Suf(j.idx - 1, j.doc);
+            if((c0 = _sx[j.idx + docBoundaries[j.doc - 1] - 1]) != c1) { prefSumCharBktsEnds[c1] = b - begGSA; b = begGSA + prefSumCharBktsEnds[c1 = c0]; }
+            *--b = ((0 == j.idx - 1) || (_sx[j.idx + docBoundaries[j.doc - 1] - 2] > c1)) ? Suf(j.idx - 1, ~j.doc) : Suf(j.idx - 1, j.doc);
          }
          else{
             //MSGSA[i].doc = MSGSA[i].doc & maxNumber;
@@ -1087,14 +1096,11 @@ void computeLZFactorAt(filelength_type i, filelength_type *pos, filelength_type 
         } else { //refining the bucket in which the match is found, from left and then from right
             renormalizations++;
             nlb = binarySearchLB(nlb, nrb, offset, _sx[j]);
-            if(verbose) std::cout << "nlb after binary search " << nlb << "\n";
             //std::cerr << "nlb: " << nlb << "\n";
             if (nlb < 0) {
                 //no match, the game is up
                 //fprintf(stderr,"Breaking from 2; offset = %lu; _sx[%lu] = %u\n",offset,j,_sx[j]);
                 maxMatch = -(nlb)-1;
-                if(verbose) std::cout << "nlb was negative " << maxMatch << "\n";
-                if(verbose) std::cout << "nrb is " << nrb << "\n";
                 isSmallerThanMaxMatch = true;
                 mismatchingSymbol = _sx[j];
                 if(maxMatch == nrb+1){
