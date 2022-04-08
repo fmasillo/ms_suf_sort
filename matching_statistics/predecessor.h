@@ -114,7 +114,7 @@ struct predecessor2{
 	uint32_t mask;
 	uint8_t shift;
 	predecessor2(){}
-	predecessor2(std::vector<Match> phrases, std::vector<uint32_t> headBoundaries, uint64_t numDocs, uint32_t maxValue){
+	predecessor2(std::vector<Match> phrases, std::vector<uint32_t> headBoundaries, uint64_t numDocs, int32_t maxValue){
 		auto t1 = std::chrono::high_resolution_clock::now();
 		nDocs = numDocs;
 		sampledPredArray.resize(numDocs);
@@ -209,14 +209,14 @@ static const int64_t nOfDigitsBig[] =
 			1 << 20, 1 << 21, 1 << 22, 1 << 23,
 			1 << 24, 1 << 25, 1 << 26, 1 << 27,
 			1 << 28, 1 << 29, 1 << 30, 1 << 31,
-			1 << 32, 1 << 33, 1 << 34, 1 << 35,
-			1 << 36, 1 << 37, 1 << 38, 1 << 39,
-			1 << 40, 1 << 41, 1 << 42, 1 << 43,
-			1 << 44, 1 << 45, 1 << 46, 1 << 47,
-			1 << 48, 1 << 49, 1 << 50, 1 << 51,
-			1 << 52, 1 << 53, 1 << 54, 1 << 55,
-			1 << 56, 1 << 57, 1 << 58, 1 << 59,        
-			1 << 60, 1 << 61, 1 << 62, 1 << 63      
+			(int64_t)1 << 32, (int64_t)1 << 33, (int64_t)1 << 34, (int64_t)1 << 35,
+			(int64_t)1 << 36, (int64_t)1 << 37, (int64_t)1 << 38, (int64_t)1 << 39,
+			(int64_t)1 << 40, (int64_t)1 << 41, (int64_t)1 << 42, (int64_t)1 << 43,
+			(int64_t)1 << 44, (int64_t)1 << 45, (int64_t)1 << 46, (int64_t)1 << 47,
+			(int64_t)1 << 48, (int64_t)1 << 49, (int64_t)1 << 50, (int64_t)1 << 51,
+			(int64_t)1 << 52, (int64_t)1 << 53, (int64_t)1 << 54, (int64_t)1 << 55,
+			(int64_t)1 << 56, (int64_t)1 << 57, (int64_t)1 << 58, (int64_t)1 << 59,        
+			(int64_t)1 << 60, (int64_t)1 << 61, (int64_t)1 << 62, (int64_t)1 << 63      
         };
 struct predEle3{
 	uint64_t start;
@@ -236,7 +236,7 @@ struct predecessor3{
 	uint64_t mask;
 	uint8_t shift;
 	predecessor3(){}
-	predecessor3(std::vector<Match> phrases, std::vector<uint32_t> docBoundaries, uint64_t numDocs, uint64_t maxValue){
+	predecessor3(std::vector<Match> phrases, std::vector<uint32_t> docBoundaries, uint64_t numDocs, int64_t maxValue){
 		auto t1 = std::chrono::high_resolution_clock::now();
 		//nDocs = numDocs;
 		//sampledPredArray.resize(numDocs);

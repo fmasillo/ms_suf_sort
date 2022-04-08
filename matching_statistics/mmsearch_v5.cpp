@@ -241,7 +241,7 @@ inline std::vector<Match>::iterator getHead(Suf a){
 }
 
 //here the heads are encoded with (idxOfTrueHead_in_phrases, pos, docOfTrueHead)
-bool sortHeadsSA(const Match &a, const Match &b){
+bool compareHeadsSA(const Match &a, const Match &b){
    Match trueHeadA = phrases[a.start];
    Match trueHeadB = phrases[b.start];
 
@@ -561,9 +561,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, bool v) {
     if(verbose) for(size_t i = 0; i < headsSA.size(); i++){std::cerr << headsSA[i].start << " " << headsSA[i].pos << " " << headsSA[i].len << " " << _sx + phrases[headsSA[i].start].start + docBoundaries[headsSA[i].len - 1] << "\n";}
     std::vector<Match>::iterator begHeads = headsSA.begin();
     for(size_t i = 1; i < _n; i++){
-       std::sort(begHeads + prefSumBucketLengthsHeadsCopy[i-1], begHeads + prefSumBucketLengthsHeadsCopy[i], sortHeadsSA);
+       std::sort(begHeads + prefSumBucketLengthsHeadsCopy[i-1], begHeads + prefSumBucketLengthsHeadsCopy[i], compareHeadsSA);
     }
-    std::sort(begHeads + prefSumBucketLengthsHeadsCopy[_n-1], headsSA.end(), sortHeadsSA);
+    std::sort(begHeads + prefSumBucketLengthsHeadsCopy[_n-1], headsSA.end(), compareHeadsSA);
     t2 = std::chrono::high_resolution_clock::now();
     uint64_t headSortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     std::cerr << "Time to sort heads: " << headSortTime << " milliseconds\n";
