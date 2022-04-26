@@ -38,7 +38,7 @@ matchstat
 .vscode
 
 # File of names
-*_file_names.txt
+*file_names.txt
 test_file_names.txt
 
 # Makefile
