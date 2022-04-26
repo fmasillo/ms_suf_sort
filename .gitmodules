@@ -1,3 +1,6 @@
 [submodule "matching_statistics/libdivsufsort"]
 	path = matching_statistics/libdivsufsort
 	url = https://github.com/y-256/libdivsufsort
+[submodule "matching_statistics/gsa-is"]
+	path = matching_statistics/gsa-is
+	url = https://github.com/felipelouza/gsa-is
