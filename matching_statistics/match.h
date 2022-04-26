@@ -3,22 +3,12 @@
 #include <stdint.h>
 
 struct Match{
-   //uint64_t suf; //position of suffix in collection
-   uint32_t start; //position in the collection 
-   uint32_t pos; //position of match in _reference
-   uint32_t len; //length of match
-   //data_type next; //symbol in the collection after the match
-   bool smaller;
-   Match(){}
+   Match() : start(0),pos(0),len(0),smaller(false) { }
    //Match(uint32_t p, uint32_t l, unsigned char nxt){
    //   pos = p; len = l, next = nxt;
    //}
-   Match(uint32_t s, uint32_t p, uint32_t l){
-      start = s; pos = p; len = l; 
-   }
-   Match(uint32_t s, uint32_t p, uint32_t l, bool sm){
-      start = s; pos = p; len = l; smaller = sm;
-   }
+   Match(uint32_t s, uint32_t p, uint32_t l) : start(s), pos(p), len(l), smaller(false) { }
+   Match(uint32_t s, uint32_t p, uint32_t l, bool sm) : start(s), pos(p), len(l), smaller(sm) { }
    void changeS(uint32_t s){
       start = s;
    }
@@ -28,35 +18,108 @@ struct Match{
    void changeD(uint32_t d){
       len = d;
    }
+
+   //uint64_t suf; //position of suffix in collection
+   uint32_t start; //position in the collection 
+   uint32_t pos; //position of match in _reference
+   uint32_t len; //length of match
+   //data_type next; //symbol in the collection after the match
+   bool smaller;
 };
 
+struct MatchSA
+{
+   MatchSA() : start(0),pos(0),len(0),smaller(false),next(0) { }
+   //Match(uint32_t p, uint32_t l, unsigned char nxt){
+   //   pos = p; len = l, next = nxt;
+   //}
+   MatchSA(uint32_t s, uint32_t p, uint32_t l, bool sm) : start(s), pos(p), len(l), smaller(sm), next(0) { }
+   MatchSA(uint32_t s, uint32_t p, uint32_t l, bool sm, data_type n) : start(s), pos(p), len(l), smaller(sm), next(n) { }
+   uint32_t start; //position in the collection 
+   uint32_t pos; //position of match in _reference
+   uint32_t len; //length of match
+   data_type next; //symbol in the collection after the match
+   bool smaller;
+};
+
+
 struct SufSStar{
+   SufSStar() : idx(0), doc(0), head(0), diffLen(0) { }
+   SufSStar(uint32_t i, uint32_t d, uint32_t h) : idx(i), doc(d), head(h), diffLen(0) { }
+   SufSStar(uint32_t i, uint32_t d, uint32_t h, uint32_t dL) : idx(i), doc(d), head(h), diffLen(dL) { }
+
    uint32_t idx;
    uint32_t doc;
    uint32_t head;
    uint32_t diffLen;
-   SufSStar(){idx = 0; doc = 0; head = 0; diffLen = 0;}
-   SufSStar(uint32_t i, uint32_t d, uint32_t h){
-      idx = i; doc = d; head = h;
-   }
-   SufSStar(uint32_t i, uint32_t d, uint32_t h, uint32_t dL){
-      idx = i; doc = d; head = h; diffLen = dL;
-   }
 };
 
 struct Suf{
-   uint32_t idx;
-   int32_t doc;
-   Suf(){idx = 0; doc = 0;}
-   Suf(uint32_t i, uint32_t d){
-      idx = i; doc = d;
-   }
-   Suf(SufSStar &s){
-      idx = s.idx; doc = s.doc;
-   }
+   Suf() : idx(0), doc(0) { }
+   Suf(uint32_t i, uint32_t d) : idx(i), doc(d) { }
+   Suf(SufSStar &s) : idx(s.idx), doc(s.doc) { }
+
    void changeDocSign(){
       doc = ~doc;
    }
+
+   uint32_t idx;
+   int32_t doc;
 };
+
+inline std::vector<Match>::iterator findHead(const std::vector<Match>::iterator start, const uint32_t len, const uint32_t m){
+   std::vector<Match>::iterator base = start;
+   uint32_t l = len, half;
+   while(l > 1){
+      half = l / 2;
+      //__builtin_prefetch(&base[(len - half) / 2]);
+      //__builtin_prefetch(&base[half + (len - half) / 2]);
+      //base += half*(base[half].start <= m); 
+      base = ((base + half)->start > m ? base : base + half);
+      l -= half;
+   }
+   return base + ((base)->start <= m);
+
+   // int32_t l = 0, r = len - 1;
+   // while (l < r) {
+   //    int32_t mid = (l + r) / 2;
+   //    //__builtin_prefetch(&start[(r-mid)/2]);
+   //    //__builtin_prefetch(&start[(mid + (r - mid))/2]);
+   //    if (start[mid].start >= m)
+   //       r = mid;
+   //    else
+   //       l = mid + 1;
+   // }
+   // return start + l + (start[l].start <= m);
+   
+   // size_t m_len = len;
+   // size_t low = -1;
+   // size_t high = m_len;
+   // //assert(m_len < std::numeric_limits<size_t>::max() / 2);
+   // while(high - low > 1){
+   //    uint32_t probe = (low + high) / 2;
+   //    if(start[probe].start > m)
+   //       high = probe;
+   //    else
+   //       low = probe;
+   // }
+   // return start + high;
+   // if (high == m_len)
+   //    return start + m_len;
+   // else
+   //    return start + high;
+
+   // uint32_t index = 0;
+   // uint32_t size = len;
+   // while (size > 1) {
+   //       size /= 2;
+   //       uint32_t probe = index + size;
+   //       if (start[probe].start <= m)
+   //          index = probe + 1;
+   // }
+   // return start + index + ((start)->start <= m);
+}
+
+
 
 #endif

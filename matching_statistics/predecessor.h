@@ -164,11 +164,11 @@ struct predecessor2{
 		std::cerr << "Finished building predecessor data structure in " << constructionTime << " milliseconds\n";
 	}
 
-	inline std::vector<Match>::iterator predQuery(const Match query, std::vector<Match> &phrases){
+	inline std::vector<Match>::iterator predQuery(const Match query, const std::vector<Match>::iterator phrases){
 		//uint8_t key = (query.start & mask) >> shift;
 		uint8_t key = query.start >> shift;
-		std::vector<Match>::iterator beg = phrases.begin();
-		// if(sampledPredArray[query.len-1][key].end - sampledPredArray[query.len-1][key].start < 30){
+		//std::vector<Match>::iterator beg = phrases.begin();
+		// if(sampledPredArray[query.len-1][key].end - sampledPredArray[query.len-1][key].start < 16){
 		// 	std::vector<Match>::iterator it;
 		// 	for(it = beg + sampledPredArray[query.len-1][key].start + docSizes[query.len-1]; it < beg + sampledPredArray[query.len-1][key].end + docSizes[query.len-1]; it++){
 		// 		if(it->start > query.start) return it-1;
@@ -176,17 +176,22 @@ struct predecessor2{
 		// 	return it-1;
 		// }
 		// else{
-			return std::upper_bound(beg + sampledPredArray[query.len-1][key].start + docSizes[query.len-1], 
-			beg + sampledPredArray[query.len-1][key].end + docSizes[query.len-1], Match(query.start, 0, 0), 
+			return std::upper_bound(phrases + sampledPredArray[query.len-1][key].start + docSizes[query.len-1], 
+			phrases + sampledPredArray[query.len-1][key].end + docSizes[query.len-1], Match(query.start, 0, 0), 
 			[](const Match first, const Match second){return first.start < second.start;}
 			) - 1;
 		// }
 	}
 
-	inline Match predQuery(const Suf query, std::vector<Match> &phrases){
+	// inline std::vector<Match>::iterator predQuery(const Match query, std::vector<Match>::iterator phrases){
+	// 	uint8_t key = query.start >> shift;
+	// 	return findHead(phrases + sampledPredArray[query.len-1][key].start + docSizes[query.len-1], sampledPredArray[query.len-1][key].end - sampledPredArray[query.len-1][key].start, query.start) - 1;
+	// }
+
+	inline Match predQuery(const Suf query, std::vector<Match>::iterator phrases){
 		//uint8_t key = (query.idx & mask) >> shift;
 		uint8_t key = query.idx >> shift;
-		std::vector<Match>::iterator beg = phrases.begin();
+		//std::vector<Match>::iterator beg = phrases.begin();
 		// if(sampledPredArray[query.doc-1][key].end - sampledPredArray[query.doc-1][key].start < 30){
 		// 	std::vector<Match>::iterator it;
 		// 	for(it = beg + sampledPredArray[query.doc-1][key].start + docSizes[query.doc-1]; it < beg + sampledPredArray[query.doc-1][key].end + docSizes[query.doc-1]; it++){
@@ -195,8 +200,8 @@ struct predecessor2{
 		// 	return *(it-1);
 		// }
 		// else{
-			return *(std::upper_bound(beg + sampledPredArray[query.doc-1][key].start + docSizes[query.doc-1], 
-			beg + sampledPredArray[query.doc-1][key].end + docSizes[query.doc-1], Match(query.idx, 0, 0), 
+			return *(std::upper_bound(phrases + sampledPredArray[query.doc-1][key].start + docSizes[query.doc-1], 
+			phrases + sampledPredArray[query.doc-1][key].end + docSizes[query.doc-1], Match(query.idx, 0, 0), 
 			[](const Match first, const Match second){return first.start < second.start;}
 			) - 1);
 		// }
@@ -327,5 +332,41 @@ struct predecessor3{
 		// }
 	}
 };
+
+// struct predecessor4{
+// 	std::vector<vEB> sampledPredArray;
+// 	std::vector<uint32_t> docSizes;
+// 	predecessor4(){}
+// 	predecessor4(std::vector<Match> phrases, std::vector<uint32_t> docBoundaries, uint64_t numDocs, int64_t maxValue){
+// 		auto t1 = std::chrono::high_resolution_clock::now();
+// 		sampledPredArray.resize(numDocs);
+// 		//uint32_t *nHeadsSampled = new uint32_t[numDocs];
+// 		docSizes.push_back(0);
+// 		for(uint32_t i = 1; i < numDocs; i++){
+// 			//nHeadsSampled[i] = headBoundaries[i] - headBoundaries[i-1];
+// 			//std::cerr << "nHeads for doc_" << i << ": " << nHeadsSampled[i] << "\n";
+// 			sampledPredArray.push_back(vEB(maxValue));
+// 			docSizes.push_back(headBoundaries[i]);
+// 		}
+		
+		
+// 		uint32_t currentDoc = 0;
+// 		for(uint32_t i = 0; i < phrases.size(); i++){
+// 			if(i == headBoundaries[currentDoc]){
+// 				currentDoc++;
+// 			}
+// 			sampledPredArray[currentDoc-1].insert(phrases[i].start);
+// 		}
+// 		auto t2 = std::chrono::high_resolution_clock::now();
+// 		uint64_t constructionTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+// 		std::cerr << "Finished building predecessor data structure in " << constructionTime << " milliseconds\n";
+// 	}
+
+// 	inline std::vector<Match>::iterator predQuery(const Match query){
+// 		return sampledPredArray[query.len-1].pred(query.start);
+// 	}
+
+// };
+
 
 #endif // __PREDECESSOR_H

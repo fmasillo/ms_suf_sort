@@ -2,9 +2,9 @@ VERSION = 1.0
 SHELL = /bin/sh
 
 CC = g++
-CFLAGS = -std=c++11 -O3 -Wall -Wextra -pedantic -funroll-loops
+CFLAGS = -std=c++11 -O3 -Wall -Wextra -pedantic -funroll-loops -fopenmp
 #CFLAGS = -std=c++11 -g -Wall -Wextra -pedantic -funroll-loops -DNDEBUG
-OBJS = utils.o mmsearch_v17.o main.o
+OBJS = utils.o mmsearch_v18.o main.o
 
 EXEC = clean matchstat
 
