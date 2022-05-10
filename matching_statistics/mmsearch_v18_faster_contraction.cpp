@@ -1,4 +1,4 @@
-#include <algorithm>
+#include <parallel/algorithm>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -19,6 +19,7 @@
 #include "qsufsort.c"
 #include "gsa-is/gsacak.c"
 //#include "libdivsufsort/build/include/divsufsort.h"
+#include "sais-lite-2.4.1/sais.c"
 
 #define likely(x)       __builtin_expect((x),1)
 
@@ -28,10 +29,10 @@ inline int64_t binarySearchRB(int64_t lo, int64_t hi, filelength_type offset, da
 
 //static data_type *_x;
 static std::string _x;
-static unsigned int *_SA;
+static int *_SA;
 static uint32_t *_ISA;
 static uint32_t *_LCP;
-static uint32_t *maxLCPs;
+static uint32_t *_PLCP;
 static rmq_tree *_rmq;
 static uint32_t _n;
 static data_type *_sx;
@@ -81,7 +82,7 @@ std::vector<MatchSA> headsSA;
 // };
 
 //LCP array construction method of J. Kärkkäinen, G. Manzini, and S. J. Puglisi, CPM 2009
-void constructLCP(std::string t, int32_t n, uint32_t *sa, uint32_t *lcp, uint32_t *temp) {
+void constructLCP(std::string t, int32_t n, int32_t *sa, uint32_t *lcp, uint32_t *temp) {
 //void constructLCP(unsigned char *t, int32_t n, uint32_t *sa, uint32_t *lcp, uint32_t *temp) {
    fprintf(stderr,"\tComputing LCP...\n");
    int32_t *phi = (int32_t *)lcp, *plcp = (int32_t *)temp, l = 0;
@@ -101,7 +102,7 @@ void constructLCP(std::string t, int32_t n, uint32_t *sa, uint32_t *lcp, uint32_
      lcp[i] = plcp[sa[i]];
 }
 
-void constructISA(uint32_t *sa, uint32_t *isa, uint32_t n){
+void constructISA(int32_t *sa, uint32_t *isa, uint32_t n){
    fprintf(stderr,"\tComputing ISA...\n");
    for(uint32_t i=0; i<n; i++){
       isa[sa[i]] = i;
@@ -370,11 +371,13 @@ uint64_t checkHeadsSA(std::vector<MatchSA> &GSA, uint64_t n){
 }
 
 uint64_t checkGSA(std::vector<SufSStar> GSA, uint64_t n){
-   uint64_t err = 0;
+   uint64_t err = -1;
+   #pragma omp parallel for
    for(size_t i = 0; i < n; i++){
        if(verbose) std::cerr << "i=" << i << ": " << GSA[i].idx << " " << GSA[i].doc << " " << "\n";//MSGSA[i].head <<"\n";
        if(GSA[i].doc == 0 || GSA[i-1].doc == 0){
-          std::cerr << "There was an empty entry\n";
+          if(verbose) std::cerr << "There was an empty entry\n";
+          err++;
           continue;
        }
        data_type *_slice_sx = _sx + GSA[i].idx + docBoundaries[GSA[i].doc - 1];
@@ -393,6 +396,7 @@ uint64_t checkGSA(std::vector<SufSStar> GSA, uint64_t n){
        
       if(memcmp(_slice_sx, _slice_prev, maxIdx) < 0){
          if(verbose) std::cerr << "PROBLEM with " << i-1 << " (" << GSA[i-1].idx << "," << GSA[i-1].doc << ") and " << i << " (" << GSA[i].idx << "," << GSA[i].doc << ")\n"; 
+         #pragma omp atomic
          err++;
       }
     }
@@ -400,6 +404,8 @@ uint64_t checkGSA(std::vector<SufSStar> GSA, uint64_t n){
 }
 
 void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded, char *refFileName, char *collFileName) {
+   auto t1 = std::chrono::high_resolution_clock::now();
+
    _x = std::string(reinterpret_cast<char const *>(ax), an);
    if((_x[_x.size()-1] == '\n') | (_x[_x.size()-1] == '\r')){
       _x.erase(_x.size()-1);
@@ -475,37 +481,39 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
    headBoundaries.reserve(maxRunsCollection['%']);
    //std::cerr << refAug << "\n";
    
-   char refAugFileName[256];
-   sprintf(refAugFileName, "%s.aug", refFileName);
-   std::ofstream fout(refAugFileName, std::ios::out | std::ios::binary);
-   fout.write(_x.c_str(), _x.size());
-   fout.close();
+   // char refAugFileName[256];
+   // sprintf(refAugFileName, "%s.aug", refFileName);
+   // std::ofstream fout(refAugFileName, std::ios::out | std::ios::binary);
+   // fout.write(_x.c_str(), _x.size());
+   // fout.close();
 
-   /* Allocate 5blocksize bytes of memory. */
-   char saFileName[1024]; 
-   sprintf(saFileName, "%s.sa", refAugFileName);
-   char command[2048];
-   sprintf(command, "libdivsufsort/build/examples/./mksary %s %s", refAugFileName, saFileName);
-   system(command);
+   int *sa = new int[_x.size()];
+   sais(reinterpret_cast<unsigned char*>(const_cast<char*>(_x.c_str())), sa, _x.size());
+   // /* Allocate 5blocksize bytes of memory. */
+   // char saFileName[1024]; 
+   // sprintf(saFileName, "%s.sa", refAugFileName);
+   // char command[2048];
+   // sprintf(command, "libdivsufsort/build/examples/./mksary %s %s", refAugFileName, saFileName);
+   // system(command);
 
-   fprintf(stderr, "About to read SA of ref\n");
-   std::cerr << saFileName << '\n';
-   infile = fopen(saFileName, "r");
-   if (!infile) {
-      fprintf(stderr, "Error opening suffix array of input file %s\n", saFileName);
-      exit(1);
-   }
-   unsigned int san = 0;
-   fseek(infile, 0, SEEK_END);
-   san = ftell(infile) / sizeof(unsigned int);
-   std::cerr << "san = " << san << '\n';
-   fseek(infile, 0, SEEK_SET);
-   unsigned int *sa = new unsigned int[san];
-   if (san != fread(sa, sizeof(unsigned int), san, infile)) {
-      fprintf(stderr, "Error reading sa from file\n");
-      exit(1);
-   }
-   fclose(infile);
+   // fprintf(stderr, "About to read SA of ref\n");
+   // std::cerr << saFileName << '\n';
+   // infile = fopen(saFileName, "r");
+   // if (!infile) {
+   //    fprintf(stderr, "Error opening suffix array of input file %s\n", saFileName);
+   //    exit(1);
+   // }
+   // unsigned int san = 0;
+   // fseek(infile, 0, SEEK_END);
+   // san = ftell(infile) / sizeof(unsigned int);
+   // std::cerr << "san = " << san << '\n';
+   // fseek(infile, 0, SEEK_SET);
+   // unsigned int *sa = new unsigned int[san];
+   // if (san != fread(sa, sizeof(unsigned int), san, infile)) {
+   //    fprintf(stderr, "Error reading sa from file\n");
+   //    exit(1);
+   // }
+   // fclose(infile);
    
    //_x = refAug.c_str();
    //std::string().swap(refAug);
@@ -516,8 +524,9 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
 
    _SA = sa;
    _ISA = new uint32_t[_n];
+   _PLCP = new uint32_t[_n];
    _LCP = new uint32_t[_n];
-   constructLCP(_x,_n,_SA,_LCP,_ISA);
+   constructLCP(_x,_n,_SA,_LCP,_PLCP);
    // for(uint32_t i=0;i<_n;i++){
    //    if(_LCP[i] > _maxLCP & _x[_SA[i]] != 'N') _maxLCP = _LCP[i];
    // }
@@ -525,9 +534,15 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
    constructISA(_SA,_ISA,_n);
    fprintf(stderr,"\tComputing RMQ...\n");
    _rmq = new rmq_tree((int *)_LCP, _n, 7);
+   for(int32_t i = 0; i < _n; i++)
+      _PLCP[i] = std::max(_LCP[_ISA[i]],_LCP[_ISA[i]+1]);
    _isMismatchingSymbolNeeded = isMismatchingSymbolNeeded;
    std::cerr << "Finished pre-processing\n";
    //TODO: preprocess SA and store intervals containing all suffixes with a given short prefix
+   auto t2 = std::chrono::high_resolution_clock::now();
+   uint64_t preprocTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+   std::cerr << "Preprocessing done in " << preprocTime << " ms\n";
+
 }
 
 int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v) {
@@ -536,17 +551,10 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    std::cerr << "File is in memory\n";
    auto t1 = std::chrono::high_resolution_clock::now();
 
-   std::vector<filelength_type> starts;
-   std::vector<uint32_t> sources;
-   std::vector<uint32_t> lengths;
-   std::vector<uint8_t> nextSymbols;
-
    unsigned int numfactors = 0;
 
    unsigned int inc = 100000000;
    uint64_t mark = inc;
-
-   //std::pair<uint32_t, uint32_t> *GSA = new std::pair<uint32_t, uint32_t>[_sn];
 
    std::cerr << "About to start main parsing loop...\n";
 
@@ -556,7 +564,6 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    bool isSmallerThanMatch;
    unsigned char mismatchingSymbol;
    int64_t prevPos = -2;
-   int64_t lpfRuns = 0;
    uint64_t pos = 0, len = 0;
    uint32_t ndoc = 1;
    uint32_t iCurrentDoc = 0;
@@ -593,6 +600,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    uint64_t sumLen = 0, maxLen = 0;
    uint64_t heurYes = 0, heurNo = 0;
    while(i < _sn){
+      if(verbose) std::cerr << "i: " << i << "\n";
       if(i > mark){
          fprintf(stderr,"i = %lu; lpfRuns = %ld\n",i,phrases.size());
          mark = mark + inc;
@@ -605,53 +613,83 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
          rightB = _n-1;
          len = 0;
          pos = _n - 1;
-         __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
-         bucketLengthStarChar['%']++;
-         bucketLengthsStar[_ISA[pos]]++;
-         bucketLengthsHeads[_ISA[pos]]++;
+         //__builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
+         //bucketLengthStarChar['%']++;
          //bucketLengthsStar[_ISA[pos]]++;
-         nStar++;
+         //bucketLengthsHeads[_ISA[pos]]++;
+         //nStar++;
          phrases.push_back(Match(iCurrentDoc, pos, len, 0));
          //docBoundaries.push_back(iCurrentDoc + 1 + docBoundaries[ndoc-1]); 
          headBoundaries.push_back(phrases.size());
          if(maxValue < iCurrentDoc) maxValue = iCurrentDoc;
          iCurrentDoc = 0;
-         pos = (((uint32_t)_sx[i]) | (1<<31)); 
+         //pos = (((uint32_t)_sx[i]) | (1<<31)); 
          ndoc++;
       }
       else{
          computeLZFactorAt(i, &pos, &len, leftB, rightB, match, isSmallerThanMatch, mismatchingSymbol);
          if((int64_t)pos != prevPos+1){
-            __builtin_prefetch(&bucketLengthsHeads[_ISA[pos]]);
+            //__builtin_prefetch(&bucketLengthsHeads[_ISA[pos]]);
             phrases.push_back(Match(iCurrentDoc, pos, len, isSmallerThanMatch));
             //bucketLengthsHeads[_ISA[pos]]++;
-            bucketLengthsHeads[_ISA[pos]]++;
          }
-         __builtin_prefetch(&_LCP[_ISA[_SA[leftB]+1]]);
+         //__builtin_prefetch(&_PLCP[_ISA[_SA[leftB]+1]]);
          //__builtin_prefetch(&_LCP[_ISA[_SA[leftB]+1]+1]);
          iCurrentDoc++;
          len--;
-         if(leftB == rightB && len > _LCP[_ISA[_SA[leftB]+1]] && len > _LCP[_ISA[_SA[leftB]+1]+1]){
-            leftB = rightB = _ISA[_SA[leftB]+1];
-            _numberOfSingleMatches++;
-            heurYes++;
-            //if(verbose) std::cerr << "No contractLeft\n";
-         }else{
+         
+         if(leftB == rightB){
+            // if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
+            //    __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
+            //    bucketLengthStarChar[_sx[i]]++;
+            //    bucketLengthsStar[_ISA[pos]]++;
+            //    //bucketLengthsStar[_ISA[pos]]++;
+            //    nStar++;
+            // }
+            uint64_t nSkips = 0;
+            while(len > _PLCP[pos+1]){
+               //leftB = rightB = _ISA[_SA[leftB]+1];
+               sumLen += len;
+               if(len > maxLen) maxLen = len;
+               nSkips++;
+               i++;
+               charBkts[_sx[i]]++;
+               iCurrentDoc++;
+               len--;
+               pos++;
+               heurYes++;
+               // if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
+               //    __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
+               //    bucketLengthStarChar[_sx[i]]++;
+               //    bucketLengthsStar[_ISA[pos]]++;
+               //    //bucketLengthsStar[_ISA[pos]]++;
+               //    nStar++;
+               // }
+               //if(pos >= _sn-1) std::cerr << "PROBLEM\n";
+            }
+            leftB = rightB = _ISA[pos];//_ISA[_SA[leftB]+nSkips];
+         }
+         // if(leftB == rightB && len > _PLCP[pos+1]){//_PLCP[_ISA[_SA[leftB]+1]]){
+         //    leftB = rightB = _ISA[_SA[leftB]+1];
+         //    _numberOfSingleMatches++;
+         //    heurYes++;
+         //    //if(verbose) std::cerr << "No contractLeft\n";
+         // }else{
             std::pair<int,int> interval = contractLeft(leftB,rightB,len);
             leftB = interval.first;
             rightB = interval.second;
             heurNo++;
             //if(verbose) std::cerr << "Yes contractLeft" << leftB << "," << rightB << "\n";
-         }
-         if(i>0){
-            if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
-               __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
-               bucketLengthStarChar[_sx[i]]++;
-               bucketLengthsStar[_ISA[pos]]++;
-               //bucketLengthsStar[_ISA[pos]]++;
-               nStar++;
-            }
-         }
+         // }
+         // if(i>0){
+         //    if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
+         //       __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
+         //       bucketLengthStarChar[_sx[i]]++;
+         //       bucketLengthsStar[_ISA[pos]]++;
+         //       //bucketLengthsStar[_ISA[pos]]++;
+         //       nStar++;
+         //    }
+         // }
       }
       i++;
       prevPos = pos;
@@ -669,6 +707,9 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    // Match a = *(pHeads.predQuery(Match(12, 0, 1, 0), phrases));
    // std::cerr << "Found head " << a.start << "," << a.pos << "," << a.len << "\n";
    // exit(0);
+   for(uint64_t i = 0; i < phrases.size(); i++){
+      bucketLengthsHeads[_ISA[phrases[i].pos]]++;
+   }
    std::cerr << "N star " << nStar << "\n";
    // docBoundaries.push_back(_sn);
    if(verbose) std::cerr << "Printing docBoundaries" << "\n";
@@ -679,6 +720,40 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
 
    t1 = std::chrono::high_resolution_clock::now();
    std::cerr << "Start Sorting procedure for MSGSA\n";
+
+   Match firstHead, secondHead;
+   ndoc = 0;
+   for(size_t i = 0; i < phrases.size() - 1; i++){
+      //if(verbose) std::cerr << "i: " << i << "\n";
+      firstHead = phrases[i];
+      secondHead = phrases[i+1];
+      if(firstHead.start == 0){
+         ndoc++;
+         //iCurrentDoc = 0;
+      }
+      if(secondHead.start == 0){
+         bucketLengthsStar[_ISA[firstHead.pos]]++;
+         bucketLengthStarChar['%']++;
+         nStar++;
+      }
+      else{
+         for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
+            if(firstHead.start + start != 0){
+               if((typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1)){
+                  bucketLengthsStar[_ISA[firstHead.pos + start]]++;
+                  bucketLengthStarChar[_sx[firstHead.start + docBoundaries[ndoc - 1] + start]]++;
+                  nStar++;
+               }
+            }
+         }
+      }
+   }
+   bucketLengthsStar[_ISA[secondHead.pos]]++;
+   bucketLengthStarChar['%']++;
+   nStar++;
+
+   std::cerr << "Count for buckets done\n";
+
    uint32_t *prefSumBucketLengthsStar = new uint32_t[_n + 1];
    prefSumBucketLengthsStar[0] = 0;
    if(verbose) std::cerr << prefSumBucketLengthsStar[0] << "\n";
@@ -688,12 +763,11 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       if(verbose) std::cerr << prefSumBucketLengthsStar[i] << "\n";
    }
    prefSumBucketLengthsStar[_n] = nStar;
+   std::cerr << "Prefix sum done\n";
+   std::cerr << "NStar: " << nStar << "\n";
 
    std::vector<SufSStar> sStar;
    sStar.resize(nStar);
-   //SufSStar *sStar = new SufSStar[nStar];
-
-   Match firstHead, secondHead;
    ndoc = 0;
    for(size_t i = 0; i < phrases.size() - 1; i++){
       //if(verbose) std::cerr << "i: " << i << "\n";
@@ -708,29 +782,38 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       // << secondHead.pos << "," << secondHead.len << "\n";
       if(secondHead.start == 0){
          //if(verbose) std::cerr << "End of doc " << ndoc << "\n";
-         //if((typeArray[firstHead.start + docBoundaries[ndoc - 1]] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] - 1] == 1)){
-         sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos]] + (bucketLengthsStar[_ISA[firstHead.pos]]--) - 1] = SufSStar(firstHead.start, ndoc, i, 0);
-         //sStar[prefSumBucketLengthsStar[_sx[firstHead.start + docBoundaries[ndoc - 1]]] + (bucketLengthsStar[_sx[firstHead.start + docBoundaries[ndoc - 1]]]--) - 1] = SufSStar(firstHead.start, ndoc, i);
-         //}
+         sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos]]++].assign(firstHead.start, ndoc, i, 0);
       }
       else{
          for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
             if(firstHead.start + docBoundaries[ndoc - 1] + start != 0){
                if((typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1)){
-                  sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos + start]] + (bucketLengthsStar[_ISA[firstHead.pos + start]]--) - 1] = SufSStar(firstHead.start + start, ndoc, i, start);
-                  //sStar[prefSumBucketLengthsStar[_sx[firstHead.start + docBoundaries[ndoc - 1] + start]] + (bucketLengthsStar[_sx[firstHead.start + docBoundaries[ndoc - 1] + start]]--) - 1] = SufSStar(firstHead.start + start, ndoc, i);
+                  sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos + start]]++].assign(firstHead.start + start, ndoc, i, start);
                }
             }
          }
       }
    }
-   sStar[prefSumBucketLengthsStar[_ISA[secondHead.pos]] + (bucketLengthsStar[_ISA[secondHead.pos]]--) - 1] = SufSStar(secondHead.start, ndoc, phrases.size() - 1, 0);
-   //sStar[prefSumBucketLengthsStar[_sx[secondHead.start + docBoundaries[ndoc - 1]]] + (bucketLengthsStar[_sx[secondHead.start + docBoundaries[ndoc - 1]]]--) - 1] = SufSStar(secondHead.start, ndoc, phrases.size() - 1);
-   if(verbose) for(size_t x = 0; x < nStar; x++) {
-      if(sStar[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
-      if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
+   //sStar[prefSumBucketLengthsStar[_ISA[secondHead.pos]] + (bucketLengthsStar[_ISA[secondHead.pos]]--) - 1] = SufSStar(secondHead.start, ndoc, phrases.size() - 1, 0);
+   sStar[prefSumBucketLengthsStar[_ISA[secondHead.pos]]++].assign(secondHead.start, ndoc, phrases.size() - 1, 0);
+   //sStar[_ISA[secondHead.pos]].push_back(SufSStar(secondHead.start, ndoc, phrases.size() - 1, 0));
+
+   std::cerr << "Bucketed for pos done\n";
+
+   prefSumBucketLengthsStar[0] = 0;
+   if(verbose) std::cerr << prefSumBucketLengthsStar[0] << "\n";
+   for(uint32_t i = 1; i < _n; i++){
+      //t_sum += bucketLengths[i-1];
+      prefSumBucketLengthsStar[i] = prefSumBucketLengthsStar[i-1] + bucketLengthsStar[i-1];
+      if(verbose) std::cerr << prefSumBucketLengthsStar[i] << "\n";
    }
-   delete[] typeArray;
+   prefSumBucketLengthsStar[_n] = nStar;
+
+   // if(verbose) for(size_t x = 0; x < nStar; x++) {
+   //    if(sStar[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
+   //    if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
+   // }
+   
    t2 = std::chrono::high_resolution_clock::now();
    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    std::cerr << "Time to bucket suffixes: " << bucketingTime << " milliseconds\n";
@@ -738,7 +821,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    if(verbose) for(uint64_t i = 0; i < _sn; i++){
       std::cerr << _sx[i] << " type: " << typeArray[i] << "\n";
    }
-
+   delete[] typeArray;
    //put $ instead of X, otherwise the X characters does not lead to a correct comparison (because they are greater)
    for(size_t i = 0; i < _sn; i++) {if(_sx[i] == '%' || _sx[i] == 'X') _sx[i] = '$';}
 
@@ -874,21 +957,6 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    t02 = std::chrono::high_resolution_clock::now();
    std::cerr << "Computing MS-heads SA took: " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
 
-   // std::cerr << "Checking SA of MS-heads\n";
-   // for(int64_t i = 1; i < headsSA.size() - 1; i++){
-   //    // uint64_t keyI = (_ISA[phrases[indicesSA[i]].pos] << 31) + phrases[indicesSA[i]].len;
-   //    // uint64_t keyII = (_ISA[phrases[indicesSA[i+1]].pos] << 31) + phrases[indicesSA[i+1]].len;
-   //    // if(keyI > keyII){
-   //    //    std::cerr << "ERROR " << i << "\n";
-   //    //    std::cerr << keyI << ", pos: " << _ISA[phrases[indicesSA[i]].pos] << ", len: " << phrases[indicesSA[i]].len 
-   //    //    << "\n" << keyII << ", pos: " << _ISA[phrases[indicesSA[i+1]].pos] << ", len: " << phrases[indicesSA[i+1]].len << "\n\n";
-   //    // }
-   //    //-std::max(indicesSA[i], indicesSA[i+1])
-   //    if(memcmp(stringHeads+indicesSA[i], stringHeads+indicesSA[i+1], headsSA.size()+1) > 0){
-   //       std::cerr << "ERROR " << i << "\n";//std::cerr << "PROBLEM with " << i-1 << " (" << MSGSA[i-1].idx << "," << MSGSA[i-1].doc << ") and " << i << " (" << MSGSA[i].idx << "," << MSGSA[i].doc << ")\n"; 
-   //    }
-   // }
-   // std::cerr << "Checked SA of MS-heads\n";
    if(verbose) for(uint64_t i = 0; i < phrases.size()+1; i++){
       std::cerr << stringHeads[i] << ", " << indicesSA[i] << "\n";
    }
@@ -919,7 +987,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    }
    //exit(0);
    t1 = std::chrono::high_resolution_clock::now();
-   if(verbose) std::cerr << "Computing nextPos in headSA\n";
+   std::cerr << "Computing nextPos in headSA\n";
    std::vector<Match>::iterator begPhrases = phrases.begin();
    for(size_t i = 0; i < headsSA.size(); i++){
       //_ISA[headsSA[headA.pos].pos + (nextStartA - headA.start)]
@@ -929,18 +997,18 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       headsSA[i].pos = _ISA[nextHead.pos + (nextStart - nextHead.start)];
       __builtin_prefetch(&phrases[headsSA[i+1].start]);
    }
-   if(verbose) std::cerr << "Computing nextPos in headSA DONE\n";
-   if(verbose) std::cerr << "Computing changeP in phrases\n";
+   std::cerr << "Computing nextPos in headSA DONE\n";
+   std::cerr << "Computing changeP in phrases\n";
    for(size_t i = 0; i < headsSA.size(); i++){
       phrases[headsSA[i].start].changeP(i);
    }
-   if(verbose) std::cerr << "Computing changeP in phrases DONE\n";
-   if(verbose) std::cerr << "Computing change heads in sStar\n";
+   std::cerr << "Computing changeP in phrases DONE\n";
+   std::cerr << "Computing change heads in sStar\n";
    for(size_t i = 0; i < nStar; i++){
       sStar[i].head = phrases[sStar[i].head].pos;
    }
-   if(verbose) std::cerr << "Computing change heads in sStar DONE\n";
-   if(verbose) std::cerr << "Computing change len and start in headSA\n";
+   std::cerr << "Computing change heads in sStar DONE\n";
+   std::cerr << "Computing change len and start in headSA\n";
    for(size_t i = 0; i < headsSA.size(); i++){
       uint32_t nextStart = phrases[headsSA[i].start].start + phrases[headsSA[i].start].len;
       Match headNextStart = Match(nextStart, 0, headsSA[i].len);
@@ -953,7 +1021,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    // Now: 
    // headsSA[i] = (nextHeadRank, nextHeadISA[pos], length, smaller);
 
-   if(verbose) std::cerr << "Computing change len and start in headSA DONE\n";
+   std::cerr << "Computing change len and start in headSA DONE\n";
    std::vector<SufSStar>::iterator begStar = sStar.begin();
    std::cerr << "Starting to sort S*-suffixes\n";
    
@@ -972,7 +1040,6 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       uint64_t errSStar = checkGSA(sStar, nStar);
       std::cerr << "N. errors on sStar: " << errSStar << "\n";
    }
-
    
    t2 = std::chrono::high_resolution_clock::now();
    uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -1009,6 +1076,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    //smallSStar.reserve(nStar);
    //for(std::vector<SufSStar>::iterator it = sStar.begin(); it < sStar.end(); it++){
    std::reverse(sStar.begin(), sStar.end());
+   
    for(uint32_t x = 1; x < sizeChars; x++){
       //diffLen = (prefSumCharBkts[x] - prefSumCharBkts[x-1]) - (prefSumBucketLengthsStar[x] - prefSumBucketLengthsStar[x-1]);
       diffLen = (prefSumCharBkts[x] - prefSumCharBkts[x-1]) - bucketLengthStarChar[x-1];
@@ -1101,7 +1169,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    uint64_t induceTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    std::cerr << "Induced in: " << induceTime << " milliseconds\n";
 
-   int checkGSA = 1;
+   int checkGSA = 0;
    if(checkGSA){
       std::cerr << "Checking GSA\n"; 
       uint32_t err = 0;
