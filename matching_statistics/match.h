@@ -2,6 +2,12 @@
 #define __MATCH_H
 #include <stdint.h>
 
+union Key
+{
+   uint32_t val;
+   char bytearray[sizeof(uint32_t)];
+};
+
 struct Match{
    Match() : start(0),pos(0),len(0),smaller(false) { }
    //Match(uint32_t p, uint32_t l, unsigned char nxt){
@@ -44,14 +50,18 @@ struct MatchSA
 
 
 struct SufSStar{
-   SufSStar() : idx(0), doc(0), head(0), diffLen(0) { }
-   SufSStar(uint32_t i, uint32_t d, uint32_t h) : idx(i), doc(d), head(h), diffLen(0) { }
-   SufSStar(uint32_t i, uint32_t d, uint32_t h, uint32_t dL) : idx(i), doc(d), head(h), diffLen(dL) { }
+   SufSStar() : head(0),  idx(0), doc(0) { diffLen.val = 0; }
+   SufSStar(uint32_t i, uint32_t d, uint32_t h) : head(h), idx(i), doc(d) { diffLen.val = 0; }
+   SufSStar(uint32_t i, uint32_t d, uint32_t h, uint32_t dL) : head(h), idx(i), doc(d) { diffLen.val = dL; }
 
+   void assign(uint32_t i, uint32_t d, uint32_t h, uint32_t dL){ 
+      head = h, diffLen.val = dL, idx = i, doc = d;
+   }
+   uint32_t head;
+   Key diffLen;
    uint32_t idx;
    uint32_t doc;
-   uint32_t head;
-   uint32_t diffLen;
+   
 };
 
 struct Suf{
@@ -65,6 +75,12 @@ struct Suf{
 
    uint32_t idx;
    int32_t doc;
+};
+
+struct PsvNsv{
+   PsvNsv() : psv(-1), nsv(-1) { }
+   PsvNsv(uint32_t p, uint32_t n) : psv(p), nsv(n) { }
+   uint32_t psv, nsv;
 };
 
 inline std::vector<Match>::iterator findHead(const std::vector<Match>::iterator start, const uint32_t len, const uint32_t m){

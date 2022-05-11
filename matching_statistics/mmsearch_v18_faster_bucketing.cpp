@@ -70,17 +70,6 @@ uint16_t sizeChars = 256;
 std::vector<Match> phrases;
 std::vector<MatchSA> headsSA;
 
-// struct SuffixComparator{
-//    const uint32_t *_maximalMatchRanks;
-//    SuffixComparator(uint32_t *maximalMatchRanks){
-//       _maximalMatchRanks = maximalMatchRanks;
-//    }
-//    bool operator()(const Match &i1, const Match &i2){ 
-//       //comparison code using _maximalMatchRanks
-//       return true;
-//    }
-// };
-
 //LCP array construction method of J. Kärkkäinen, G. Manzini, and S. J. Puglisi, CPM 2009
 void constructLCP(std::string t, int32_t n, int32_t *sa, uint32_t *lcp, uint32_t *temp) {
 //void constructLCP(unsigned char *t, int32_t n, uint32_t *sa, uint32_t *lcp, uint32_t *temp) {
@@ -136,112 +125,19 @@ std::pair<int,int> contractLeft(int lo, int hi, int offset){
    return adjustInterval(tmplo, tmphi, offset);
 }
 
-inline uint32_t radixSortSmaller(const std::vector<MatchSA>::iterator a, const uint32_t start, const uint32_t end, uint32_t *buckets, uint32_t *startIndex){
-   std::vector<MatchSA> result; 
-   result.resize(end-start); 
-   //uint32_t *buckets = new uint32_t[2]();
-   //uint32_t *startIndex = new uint32_t[2]();
-   uint32_t key = 0;
-   
-   for(std::vector<MatchSA>::iterator it = a+start; it < a+end; ++it) {
-      ++buckets[it->smaller];
-   }
-   startIndex[0] = 0;
-   startIndex[1] = buckets[0];
-   for(std::vector<MatchSA>::iterator it = a+end-1; it >= a+start; --it){
-      key = it->smaller;
-      result[startIndex[key] + --buckets[key]] = *it;
-   }
-   std::copy(result.begin(), result.end(), a+start);
-   key = startIndex[1];
-   //delete[] buckets;
-   //delete[] startIndex;
-   return key;
-}
-
-inline void radixSortLen(const std::vector<MatchSA>::iterator a, const uint32_t start, const uint32_t end, uint32_t *buckets, uint32_t *startIndex){
-   const uint32_t INT_BIT_SIZE = sizeof(uint32_t)<<3; int RADIX = 0x100, MASK = RADIX-1, MASK_BIT_LENGTH = 8;
-   std::vector<MatchSA> result;
-   result.resize(end-start);  
-   //uint32_t *buckets = new uint32_t[RADIX](); 
-   //uint32_t *startIndex = new uint32_t[RADIX]();
-   uint32_t flag = 0, key = 0;
-   for(flag; flag < 32; flag+=8){
-      for(std::vector<MatchSA>::iterator it = a+start; it < a+end; ++it) {
-         key = (it->len & (MASK << flag)) >> flag;
-         ++buckets[key];
-      }
-      startIndex[0] = 0;
-      for(uint32_t j = 1; j < RADIX; ++j) startIndex[j] = startIndex[j - 1] + buckets[j - 1];
-      for(std::vector<MatchSA>::iterator it = a+end-1; it >= a+start; --it){
-         key = (it->len & (MASK << flag)) >> flag;
-         result[startIndex[key] + --buckets[key]] = *it;
-      }
-      std::copy(result.begin(), result.end(), a+start);
-      //flag += MASK_BIT_LENGTH;
-   }
-   //std::reverse(a.begin()+start, a.begin()+end);
-   //delete[] buckets;
-   //delete[] startIndex;
-}
-
-inline void radixSortLenDecr(const std::vector<MatchSA>::iterator a, const uint32_t start, const uint32_t end, uint32_t *buckets, uint32_t *startIndex){
-   const uint32_t INT_BIT_SIZE = sizeof(uint32_t)<<3; int RADIX = 0x100, MASK = RADIX-1, MASK_BIT_LENGTH = 8;
-   std::vector<MatchSA> result;
-   result.resize(end-start);  
-   //uint32_t *buckets = new uint32_t[RADIX](); 
-   //uint32_t *startIndex = new uint32_t[RADIX]();
-   uint32_t flag = 0, key = 0;
-   for(flag; flag < 32; flag+=8){
-      for(std::vector<MatchSA>::iterator it = a+start; it < a+end; ++it) {
-         key = (it->len & (MASK << flag)) >> flag;
-         ++buckets[RADIX - key - 1];
-      }
-      startIndex[0] = 0;
-      for(uint32_t j = 1; j < RADIX; ++j) startIndex[j] = startIndex[j - 1] + buckets[j-1];
-      for(std::vector<MatchSA>::iterator it = a+end-1; it >= a+start; --it){
-         key = (it->len & (MASK << flag)) >> flag;
-         result[startIndex[RADIX - key - 1] + --buckets[RADIX - key - 1]] = *it;
-      }
-      std::copy(result.begin(), result.end(), a+start);
-      //flag += MASK_BIT_LENGTH;
-   }
-   //delete[] buckets;
-   //delete[] startIndex;
-}
-
-inline void radixSortChar(const std::vector<MatchSA>::iterator a, const uint32_t start, const uint32_t end, uint32_t *buckets, uint32_t *startIndex){
-   const uint32_t INT_BIT_SIZE = sizeof(data_type)<<3; int RADIX = 0x100, MASK = RADIX-1, MASK_BIT_LENGTH = 8;
-   std::vector<MatchSA> result; 
-   result.resize(end-start); 
-   uint32_t flag = 0, key = 0;
-    
-   for(std::vector<MatchSA>::iterator it = a+start; it < a+end; ++it) {
-      key = (it->next & (MASK << flag)) >> flag;
-      ++buckets[key];
-   }
-   startIndex[0] = 0;
-   for(uint32_t j = 1; j < RADIX; ++j) startIndex[j] = startIndex[j - 1] + buckets[j - 1];
-   for(std::vector<MatchSA>::iterator it = a+end-1; it >= a+start; --it){
-      key = (it->next & (MASK << flag)) >> flag;
-      result[startIndex[key] + --buckets[key]] = *it;
-   }
-   std::copy(result.begin(), result.end(), a+start);
-   //delete[] buckets;
-   //delete[] startIndex;
-}
-
 void radixSortPos(const std::vector<SufSStar>::iterator a, const uint32_t start, const uint32_t end){
    const uint32_t INT_BIT_SIZE = sizeof(uint32_t)<<3; int RADIX = 0x100, MASK = RADIX-1, MASK_BIT_LENGTH = 8;
    std::vector<SufSStar> result;
    result.resize(end-start);  
    uint32_t *buckets = new uint32_t[RADIX](); 
    uint32_t *startIndex = new uint32_t[RADIX]();
-   uint32_t flag = 0, key = 0;
-   for(; flag < 4; flag++){
+   data_type key = 0;
+   for(uint32_t flag = 0; flag < 4; flag++){
+      std::cerr << "flag: " << flag << "\n";
       for(std::vector<SufSStar>::iterator it = a+start; it < a+end; ++it) {
          //key = (it->pos & (MASK << flag)) >> flag;
          key = it->diffLen.bytearray[flag];
+         //std::cerr << "key: " << (uint32_t)key << "\n";
          ++buckets[key];
       }
       startIndex[0] = 0;
@@ -249,69 +145,15 @@ void radixSortPos(const std::vector<SufSStar>::iterator a, const uint32_t start,
       for(std::vector<SufSStar>::iterator it = a+end-1; it >= a+start; --it){
          //key = (it->pos & (MASK << flag)) >> flag;
          key = it->diffLen.bytearray[flag];
-         result[startIndex[key] + --buckets[key]] = *it;
+         //if(key!=0) std::cerr << "key: " << (uint32_t)key << "\n";
+         result[startIndex[key] + --buckets[key]].assign(it->idx, it->doc, it->head, it->diffLen.val);
       }
       std::copy(result.begin(), result.end(), a+start);
-      flag += MASK_BIT_LENGTH;
+      //flag += MASK_BIT_LENGTH;
    }
    //std::reverse(a.begin()+start, a.begin()+end);
    delete[] buckets;
    delete[] startIndex;
-}
-
-//here the heads are encoded with (idxOfTrueHead_in_phrases, pos, docOfTrueHead)
-bool compareHeadsSA(const Match &a, const Match &b){
-   //Match trueHeadA = phrases[a.start];
-   //Match trueHeadB = phrases[b.start];
-   std::vector<Match>::iterator headA = phrases.begin() + a.start;
-   std::vector<Match>::iterator headB = phrases.begin() + b.start;
-   if(headA->pos != headB->pos)
-      return headA->pos < headB->pos;
-   if(headA->len != headB->len){
-      //diffLenCounter++;
-      //return (headA->len < headB->len) ? headA->smaller : !headB->smaller;
-      return headA->smaller*(headA->len < headB->len) + !headB->smaller*(headA->len > headB->len);
-   }
-   if(((headA+1)->start == 0) & ((headB+1)->start == 0)){
-      return a.len < b.len;
-   }
-   
-   // headA++;
-   // headB++;
-   //uint64_t counter = 0;
-   uint32_t nextStartA, nextStartB;
-   Match headNextStart;
-   
-   while(headA->len == headB->len){
-      //sumCounter++;
-      //counter++;
-      //if(maxCounter < counter) maxCounter = counter;
-
-      nextStartA = headA->start + headA->len;
-      nextStartB = headB->start + headB->len;
-      headNextStart = Match(nextStartA, 0, a.len);
-      headA = pHeads.predQuery(headNextStart, phrases.begin());
-      headNextStart = Match(nextStartB, 0, b.len);
-      headB = pHeads.predQuery(headNextStart, phrases.begin());
-      if((headA->start - nextStartA) != (headB->start - nextStartB)){
-         //denCounter++;
-         return _ISA[headA->pos + (nextStartA - headA->start)] < _ISA[headB->pos + (nextStartB - headB->start)];
-      }
-      if(((headA+1)->start == 0) & ((headB+1)->start == 0)){
-         return a.len < b.len;
-      }
-      if(headA->pos != headB->pos){
-         //denCounter++;
-         return _ISA[headA->pos] < _ISA[headB->pos];
-      }
-      
-   }
-   //denCounter++;
-   if(headA->pos != headB->pos){return _ISA[headA->pos] < _ISA[headB->pos];}
-   //return (headA->len < headB->len) ? headA->smaller : !headB->smaller;
-   return headA->smaller*(headA->len < headB->len) + !headB->smaller*(headA->len > headB->len);
-   // nextMM = std::min(headA->len, headB->len);
-   // return _sx[headA->start + docBoundaries[a.len - 1] + nextMM] < _sx[headB->start + docBoundaries[b.len - 1] + nextMM];
 }
 
 bool compareMatchSA(const MatchSA &a, const MatchSA &b){
@@ -482,7 +324,7 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
    _x += '\n';
    //docBoundaries.reserve(maxRunsCollection['%']);
    headBoundaries.reserve(maxRunsCollection['%']);
-   std::cerr << "Size aug: " << _x.size() << "\n";
+   //std::cerr << refAug << "\n";
    auto t02 = std::chrono::high_resolution_clock::now();
    std::cerr << "Augmenting reference done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
 
@@ -544,7 +386,7 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
    for(int32_t i = 0; i < _n; i++)
       _PLCP[i] = std::max(_LCP[_ISA[i]],_LCP[_ISA[i]+1]);
    t02 = std::chrono::high_resolution_clock::now();
-   std::cerr << "Computing LCP and PLCP done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
+   std::cerr << "Copmuting LCP and PLCP done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
    // for(uint32_t i=0;i<_n;i++){
    //    if(_LCP[i] > _maxLCP & _x[_SA[i]] != 'N') _maxLCP = _LCP[i];
    // }
@@ -554,7 +396,7 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
    fprintf(stderr,"\tComputing RMQ...\n");
    _rmq = new rmq_tree((int *)_LCP, _n, 7);
    t02 = std::chrono::high_resolution_clock::now();
-   std::cerr << "Computing RMQ done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
+   std::cerr << "Copmuting RMQ done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
 
    _isMismatchingSymbolNeeded = isMismatchingSymbolNeeded;
    std::cerr << "Finished pre-processing\n";
@@ -597,6 +439,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       std::cerr << s << "\t" << _SA[s] << "\t" << _x[_SA[s]];
    }
 
+   uint64_t nStar = 0;
    bool *typeArray = new bool[_sn];
    typeArray[_sn - 1] = 0;
    for(uint64_t i = _sn - 2; i < _sn; i--){
@@ -608,12 +451,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       }
       else{
          typeArray[i] = 1;
+         if(typeArray[i+1] == 0) nStar++;
       }
    }
    // docBoundaries.push_back(0);
    headBoundaries.push_back(0);
    uint64_t i = 0;
-   uint64_t nStar = 0;
    uint64_t *charBkts = new uint64_t[sizeChars]();
    uint64_t maxValue = 0;
    phrases.reserve(_sn / 10);
@@ -633,41 +476,23 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
          rightB = _n-1;
          len = 0;
          pos = _n - 1;
-         //__builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
-         //bucketLengthStarChar['%']++;
-         //bucketLengthsStar[_ISA[pos]]++;
-         //bucketLengthsHeads[_ISA[pos]]++;
-         //nStar++;
          phrases.push_back(Match(iCurrentDoc, pos, len, 0));
          //docBoundaries.push_back(iCurrentDoc + 1 + docBoundaries[ndoc-1]); 
          headBoundaries.push_back(phrases.size());
          if(maxValue < iCurrentDoc) maxValue = iCurrentDoc;
          iCurrentDoc = 0;
-         //pos = (((uint32_t)_sx[i]) | (1<<31)); 
          ndoc++;
       }
       else{
          computeLZFactorAt(i, &pos, &len, leftB, rightB, match, isSmallerThanMatch, mismatchingSymbol);
          if((int64_t)pos != prevPos+1){
-            //__builtin_prefetch(&bucketLengthsHeads[_ISA[pos]]);
             phrases.push_back(Match(iCurrentDoc, pos, len, isSmallerThanMatch));
-            //bucketLengthsHeads[_ISA[pos]]++;
          }
-         //__builtin_prefetch(&_PLCP[_ISA[_SA[leftB]+1]]);
-         //__builtin_prefetch(&_LCP[_ISA[_SA[leftB]+1]+1]);
          iCurrentDoc++;
          len--;
          
          if(leftB == rightB){
-            // if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
-            //    __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
-            //    bucketLengthStarChar[_sx[i]]++;
-            //    bucketLengthsStar[_ISA[pos]]++;
-            //    //bucketLengthsStar[_ISA[pos]]++;
-            //    nStar++;
-            // }
             while(len > _PLCP[pos+1]){
-               //leftB = rightB = _ISA[_SA[leftB]+1];
                sumLen += len;
                if(len > maxLen) maxLen = len;
                i++;
@@ -676,38 +501,13 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
                len--;
                pos++;
                heurYes++;
-               // if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
-               //    __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
-               //    bucketLengthStarChar[_sx[i]]++;
-               //    bucketLengthsStar[_ISA[pos]]++;
-               //    //bucketLengthsStar[_ISA[pos]]++;
-               //    nStar++;
-               // }
-               //if(pos >= _sn-1) std::cerr << "PROBLEM\n";
             }
-            leftB = rightB = _ISA[pos];//_ISA[_SA[leftB]+nSkips];
+            leftB = rightB = _ISA[pos];
          }
-         // if(leftB == rightB && len > _PLCP[pos+1]){//_PLCP[_ISA[_SA[leftB]+1]]){
-         //    leftB = rightB = _ISA[_SA[leftB]+1];
-         //    _numberOfSingleMatches++;
-         //    heurYes++;
-         //    //if(verbose) std::cerr << "No contractLeft\n";
-         // }else{
-            std::pair<int,int> interval = contractLeft(leftB,rightB,len);
-            leftB = interval.first;
-            rightB = interval.second;
-            heurNo++;
-            //if(verbose) std::cerr << "Yes contractLeft" << leftB << "," << rightB << "\n";
-         // }
-         // if(i>0){
-         //    if((typeArray[i] == 0) & (typeArray[i-1] == 1)){
-         //       __builtin_prefetch(&bucketLengthsStar[_ISA[pos]]);
-         //       bucketLengthStarChar[_sx[i]]++;
-         //       bucketLengthsStar[_ISA[pos]]++;
-         //       //bucketLengthsStar[_ISA[pos]]++;
-         //       nStar++;
-         //    }
-         // }
+         std::pair<int,int> interval = contractLeft(leftB,rightB,len);
+         leftB = interval.first;
+         rightB = interval.second;
+         heurNo++;
       }
       i++;
       prevPos = pos;
@@ -739,9 +539,12 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    t1 = std::chrono::high_resolution_clock::now();
    std::cerr << "Start Sorting procedure for MSGSA\n";
 
+   std::vector<SufSStar> sStar;
+   sStar.resize(nStar);
    auto t01 = std::chrono::high_resolution_clock::now();
    Match firstHead, secondHead;
    ndoc = 0;
+   uint64_t sufNumber = 0;
    for(size_t i = 0; i < phrases.size() - 1; i++){
       //if(verbose) std::cerr << "i: " << i << "\n";
       firstHead = phrases[i];
@@ -752,24 +555,27 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       }
       if(secondHead.start == 0){
          bucketLengthsStar[_ISA[firstHead.pos]]++;
+         sStar[sufNumber++].assign(firstHead.start, ndoc, i, _ISA[firstHead.pos]);
          bucketLengthStarChar['%']++;
-         nStar++;
+         //nStar++;
       }
       else{
          for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
             if(firstHead.start + start != 0){
                if((typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1)){
                   bucketLengthsStar[_ISA[firstHead.pos + start]]++;
+                  sStar[sufNumber++].assign(firstHead.start + start, ndoc, i, _ISA[firstHead.pos + start]);
                   bucketLengthStarChar[_sx[firstHead.start + docBoundaries[ndoc - 1] + start]]++;
-                  nStar++;
+                  //nStar++;
                }
             }
          }
       }
    }
+   sStar[sufNumber++].assign(secondHead.start, ndoc, phrases.size() - 1, _ISA[secondHead.pos]);
    bucketLengthsStar[_ISA[secondHead.pos]]++;
    bucketLengthStarChar['%']++;
-   nStar++;
+   //nStar++;
    auto t02 = std::chrono::high_resolution_clock::now();
    std::cerr << "Counting buckets took: " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
 
@@ -785,53 +591,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    std::cerr << "Prefix sum done\n";
    std::cerr << "NStar: " << nStar << "\n";
 
-   std::vector<SufSStar> sStar;
-   sStar.resize(nStar);
-   ndoc = 0;
-   for(size_t i = 0; i < phrases.size() - 1; i++){
-      //if(verbose) std::cerr << "i: " << i << "\n";
-      firstHead = phrases[i];
-      secondHead = phrases[i+1];
-      if(firstHead.start == 0){
-         ndoc++;
-         //iCurrentDoc = 0;
-      }
-      // if(verbose) std::cerr << "doc " << ndoc << " firstHead.start,pos,len: " << firstHead.start << ","
-      // << firstHead.pos << "," << firstHead.len << "; secondHead.start,pos,len: " << secondHead.start << ","
-      // << secondHead.pos << "," << secondHead.len << "\n";
-      if(secondHead.start == 0){
-         //if(verbose) std::cerr << "End of doc " << ndoc << "\n";
-         sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos]]++].assign(firstHead.start, ndoc, i, 0);
-      }
-      else{
-         for(uint32_t start = 0; start < secondHead.start - firstHead.start; start++){
-            if(firstHead.start + docBoundaries[ndoc - 1] + start != 0){
-               if((typeArray[firstHead.start + docBoundaries[ndoc - 1] + start] == 0) & (typeArray[firstHead.start + docBoundaries[ndoc - 1] + start - 1] == 1)){
-                  sStar[prefSumBucketLengthsStar[_ISA[firstHead.pos + start]]++].assign(firstHead.start + start, ndoc, i, start);
-               }
-            }
-         }
-      }
-   }
-   //sStar[prefSumBucketLengthsStar[_ISA[secondHead.pos]] + (bucketLengthsStar[_ISA[secondHead.pos]]--) - 1] = SufSStar(secondHead.start, ndoc, phrases.size() - 1, 0);
-   sStar[prefSumBucketLengthsStar[_ISA[secondHead.pos]]++].assign(secondHead.start, ndoc, phrases.size() - 1, 0);
-   //sStar[_ISA[secondHead.pos]].push_back(SufSStar(secondHead.start, ndoc, phrases.size() - 1, 0));
-
-   std::cerr << "Bucketed for pos done\n";
-
-   prefSumBucketLengthsStar[0] = 0;
-   if(verbose) std::cerr << prefSumBucketLengthsStar[0] << "\n";
-   for(uint32_t i = 1; i < _n; i++){
-      //t_sum += bucketLengths[i-1];
-      prefSumBucketLengthsStar[i] = prefSumBucketLengthsStar[i-1] + bucketLengthsStar[i-1];
-      if(verbose) std::cerr << prefSumBucketLengthsStar[i] << "\n";
-   }
-   prefSumBucketLengthsStar[_n] = nStar;
-
-   // if(verbose) for(size_t x = 0; x < nStar; x++) {
-   //    if(sStar[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
-   //    if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
-   // }
+   //std::sort(sStar.begin(), sStar.end(), [](const SufSStar a, const SufSStar b){return a.diffLen.val < b.diffLen.val;});
+   radixSortPos(sStar.begin(), 0 , nStar);
    
    t2 = std::chrono::high_resolution_clock::now();
    uint64_t bucketingTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -1024,6 +785,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    std::cerr << "Computing changeP in phrases DONE\n";
    std::cerr << "Computing change heads in sStar\n";
    for(size_t i = 0; i < nStar; i++){
+      sStar[i].diffLen.val = sStar[i].idx - phrases[sStar[i].head].start;
+      //if( sStar[i].diffLen.val) std::cerr << "diffLen: " << sStar[i].diffLen.val << " idx: " << sStar[i].idx << " start: " << phrases[sStar[i].head].start <<"\n";
       sStar[i].head = phrases[sStar[i].head].pos;
    }
    std::cerr << "Computing change heads in sStar DONE\n";
@@ -1054,17 +817,19 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       if(sStar[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
       if(verbose) std::cerr << sStar[x].idx << " " << sStar[x].doc << " " << sStar[x].head << " " << _sx + sStar[x].idx + docBoundaries[sStar[x].doc - 1];
    }
-
+   
    t2 = std::chrono::high_resolution_clock::now();
    uint64_t sortTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    std::cerr << "S*-suffixes sorted in: " << sortTime << " milliseconds\n";
    std::cerr << "number of diffPos " << diffSufPos << "\n";
    std::cerr << "number of diffLen " << diffSufLen << "\n";
    std::cerr << "number of diffHeads " << diffSufHeads << "\n";
+
    if(verbose){
       uint64_t errSStar = checkGSA(sStar, nStar);
       std::cerr << "N. errors on sStar: " << errSStar << "\n";
    }
+   //exit(0);
 
    t1 = std::chrono::high_resolution_clock::now();
    uint64_t *prefSumCharBkts = new uint64_t[sizeChars + 1];
@@ -1227,155 +992,11 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    std::cerr << "times it had to compare only one char " << diffLenCounter << "\n";
    std::cerr << "times it had to compare more than one char " << denCounter << "\n";
    std::cerr << "times it compared two suff in const time " << finalSuffCounter << "\n";
-   //std::cerr << "n. of ties " << tiesCounter << "\n";
-//  delete[] sx;
-//  delete[] bucketLengths;
-//  delete[] prefSumBucketLengths;
-//  delete[] prefSumBucketLengthsCopy;
    delete[] _LCP;
    delete[] _ISA;
    delete[] _SA;
    std::vector<Suf>().swap(MSGSA);
-    //delete[] GSA;
-    
-    //Serialize reference, phrases, and other info
-    //File format:
-    //size_t _r: length of reference
-    //size_t [] _reference: _r uint8_ts, the referene
-    //size_t _r: length of reference <--- yes, again
-    //size_t [] sa: _r uint32_ts, the suffix array of the reference (discarded after load)
-    //size_t _z: number of phrases
-    //size_t [] starts: starting positions of phrases in collection (discarded after load)
-    //size_t _z: number of phrases <--- yes, again
-    //uint32_t [] _phrases: sources of phrases (positions in reference)
-    //size_t _n: total length of the collection including separator symbols
 
-    //std::cerr << "Writing out to file: " << outputfilename << std::endl;
-    //std::ofstream fout(outputfilename, std::ios::out | std::ios::binary);
-
-    //std::cout << "Reference: " << _n << " items, file size =  " <<  _n * sizeof(unsigned int) << "\n";
-    ////size_t size = positionsCovered; // for the reference without unused symbols
-    //size_t size = _n;
-    //std::cout << "Writing out reference: ";
-    //for (int j = 0; j < 10; j++) std::cout << _x[j] << ' ';
-    //std::cout << " ... (" << size << " items)\n";
-    //fout.write((char *) &size, sizeof(size_t));
-    //fout.write((char *) &_x[0], size * sizeof(data_type));
-
-    //std::cout << "Writing out _SA: ";
-    //for (int j = 0; j < 10; j++) std::cout << _SA[j] << ' ';
-    //std::cout << " ... (" << size << " items)\n";
-    //fout.write((char *) &size, sizeof(size_t));
-    //fout.write((char *) _SA, size * sizeof(uint32_t));
-
-    //size = starts.size();
-    //std::cout << "Writing out starts: ";
-    //for (int j = 0; j < 10; j++) std::cout << starts[j] << ' ';
-    //std::cout << " ... (" << size << " items)\n";
-    //fout.write((char *) &size, sizeof(size_t));
-    //fout.write((char *) &starts[0], starts.size() * sizeof(filelength_type));
-
-    //size = sources.size();
-    //std::cout << "Writing out sources: ";
-    //for (int j = 0; j < 10; j++) std::cout << sources[j] << ' ';
-    //std::cout << " ... (" << size << " items)\n";
-    //fout.write((char *) &size, sizeof(size_t));
-    //fout.write((char *) &sources[0], sources.size() * sizeof(uint32_t));
-
-
-    //fout.write((char *) &_sn, sizeof(size_t));
-
-    //fout.close();
-    /*
-    uint64_t maxSuffixesBefore = 0;
-    uint32_t zerosInSuffixesBefore = 0;
-    uint64_t sum = 0;
-    for(uint32_t j=0; j<_n; j++){
-       if(suffixesBefore[j] > maxSuffixesBefore) maxSuffixesBefore = suffixesBefore[j];
-       if(!suffixesBefore[j]) zerosInSuffixesBefore++;
-       bucketStarts[j] = sum;
-       sum += suffixesBefore[j];
-    }
-
-    std::cerr << "After prefix sum.\n";
-
-    //std::vector<std::pair<uint32_t,uint32_t> > sortedPhrases;
-    //sortedPhrases.reserve(phrases.size());
-    std::pair<uint32_t,uint32_t> *sortedPhrases = new std::pair<uint32_t,uint32_t>[phrases.size()];
-    
-    std::cerr << "Allocated sortedPhrases.\n";
-
-    uint32_t nphrases = 0;
-    for(uint32_t j=0; j<phrases.size(); j++){
-       uint32_t possa = phrases[j].first;
-       uint32_t len = phrases[j].second;
-       if(len){
-          uint64_t bs = bucketStarts[possa];
-          //TODO: set sortedPhrases[bs].first to be phrase id (i.e. j) 
-          sortedPhrases[bs] = phrases[j];
-          bucketStarts[possa]++;
-          nphrases++;
-       }
-    }
-    std::cerr << "After bucketing. nphrases: " << nphrases << '\n';
-
-    //reset bucket starts
-    sum = 0;
-    for(uint32_t j=0; j<_n; j++){
-       bucketStarts[j] = sum;
-       sum += suffixesBefore[j];
-    }
-    std::cerr << "Bucket starts reset." << '\n';
-
-    for(uint32_t j=0; j<_n; j++){
-       if(suffixesBefore[j]){
-          //std::cerr << "Sorting bucket of length: " << suffixesBefore[j] << '\n';
-          sort(sortedPhrases+bucketStarts[j],sortedPhrases+bucketStarts[j]+suffixesBefore[j],compareMatchesWithSamePosition);
-       }
-    }
-    std::cerr << "After length sorting of buckets: " << nphrases << '\n';
-    
-    std::ofstream fout(outputfilename, std::ios::out);
-    fout << "Outputting sorted phrases" << "\n";
-    for(uint32_t x=0; x<phrases.size(); x++){ 
-       //if(suffixesBefore[x]){
-         fout << sortedPhrases[x].first << " " << sortedPhrases[x].second << "\n";
-       //}
-       //else{
-       //   fout << "It was empty for " << x << "\n";
-       //}
-    }
-    fout.close();
-
-    uint32_t previousLen = 0;
-    uint64_t numberOfLengthBuckets = 0;
-    uint64_t lengthBucketSize = 0, maxLengthBucketSize = 0;
-    for(uint32_t j=0; j<nphrases; j++){
-       if(sortedPhrases[j].second != previousLen){
-          numberOfLengthBuckets++;
-          if(lengthBucketSize > maxLengthBucketSize){
-             maxLengthBucketSize = lengthBucketSize;
-          }
-       }else{
-          lengthBucketSize++;
-       }
-       previousLen = sortedPhrases[j].second;
-    }
-
-    std::cerr << "number of length buckets: " << numberOfLengthBuckets << '\n';
-    std::cerr << "max. length bucket size: " << maxLengthBucketSize << '\n';
-
-    std::cerr << "number of factors: " << numfactors << '\n';
-    std::cerr << "average factor length: " << (_sn/numfactors) << '\n';
-    std::cerr << "max. factor length: " << maxFactorLength << '\n';
-    std::cerr << "lenZeroFactors: " << lenZeroFactors << '\n';
-    std::cerr << "number of phrases with unambiguous match: " << _numberOfSingleMatches << '\n';
-    std::cerr << "number of phrases shorter than max. LCP of reference: " << _numberOfShortFactors << '\n';
-    std::cerr << "max. in suffixesBefore: " << maxSuffixesBefore << '\n';
-    std::cerr << "zeroes in suffixesBefore: " << zerosInSuffixesBefore << '\n';
-    std::cerr << "---Time to lz factorize: " << lzFactorizeTime << " milliseconds\n";
-    std::cerr << "phrases.size() " << phrases.size() << '\n';
-    */
     return numfactors;
 }
 
