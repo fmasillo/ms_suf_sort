@@ -6,6 +6,7 @@ union Key
 {
    uint32_t val;
    char bytearray[sizeof(uint32_t)];
+   uint16_t doublebytearray[sizeof(uint32_t)];
 };
 
 struct Match{
@@ -51,8 +52,13 @@ struct MatchSA
 
 struct SufSStar{
    SufSStar() : head(0),  idx(0), doc(0) { diffLen.val = 0; }
+   SufSStar(uint32_t i, uint32_t d) : head(0), idx(i), doc(d) { diffLen.val = 0; }
    SufSStar(uint32_t i, uint32_t d, uint32_t h) : head(h), idx(i), doc(d) { diffLen.val = 0; }
    SufSStar(uint32_t i, uint32_t d, uint32_t h, uint32_t dL) : head(h), idx(i), doc(d) { diffLen.val = dL; }
+
+   bool operator<(const SufSStar &other){
+      return diffLen.val < other.diffLen.val;
+   }
 
    void assign(uint32_t i, uint32_t d, uint32_t h, uint32_t dL){ 
       head = h, diffLen.val = dL, idx = i, doc = d;

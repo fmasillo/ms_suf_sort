@@ -208,10 +208,10 @@ void radixSortPos(const std::vector<SufSStar>::iterator a, const uint32_t start,
 // }
 
 bool compareMatchSA(const MatchSA &a, const MatchSA &b){
-   if((a.smaller == 0) & (b.smaller == 0)){
+   if(a.smaller == 0 & b.smaller == 0){
       return (a.next < b.next)*(a.len == b.len) + (a.len < b.len)*(a.len != b.len);
    }
-   else if((a.smaller == 1) & (b.smaller == 1)){
+   else if(a.smaller == 1 & b.smaller == 1){
       return (a.next < b.next)*(a.len == b.len) + (a.len > b.len)*(a.len != b.len);
    }
    return a.smaller < b.smaller;
@@ -434,10 +434,11 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
    std::cerr << "Computing ISA done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
 
    constructLCP(_x,_n,_SA,_LCP,_PLCP);
-   for(int32_t i = 0; i < _n; i++)
+   for(int32_t i = 0; i < _n; i++){
       _PLCP[i] = std::max(_LCP[_ISA[i]],_LCP[_ISA[i]+1]);
+   }
    t02 = std::chrono::high_resolution_clock::now();
-   std::cerr << "Copmuting LCP and PLCP done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
+   std::cerr << "Computing LCP and PLCP done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
    // for(uint32_t i=0;i<_n;i++){
    //    if(_LCP[i] > _maxLCP & _x[_SA[i]] != 'N') _maxLCP = _LCP[i];
    // }
@@ -445,9 +446,9 @@ void lzInitialize(data_type *ax, unsigned int an, bool isMismatchingSymbolNeeded
 
    t01 = std::chrono::high_resolution_clock::now();
    fprintf(stderr,"\tComputing RMQ...\n");
-   _rmq = new rmq_tree((int *)_LCP, _n, 6);
+   _rmq = new rmq_tree((int *)_LCP, _n, 7);
    t02 = std::chrono::high_resolution_clock::now();
-   std::cerr << "Copmuting RMQ done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
+   std::cerr << "Computing RMQ done in " << std::chrono::duration_cast<std::chrono::milliseconds>(t02 - t01).count() << " ms\n";
 
    _isMismatchingSymbolNeeded = isMismatchingSymbolNeeded;
    std::cerr << "Finished pre-processing\n";
@@ -546,6 +547,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
          
          if(leftB == rightB){
             while(len > _PLCP[pos+1]){
+            //while(len > _maxLCP){
                //sumLen += len;
                //if(len > maxLen) maxLen = len;
                i++;
@@ -568,9 +570,10 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    delete[] _SA;
    delete[] _LCP;
    delete[] _PLCP;
+   
    //delete[] _rmq;
    std::cerr << "heurYes " << heurYes << ", heurNo " << heurNo << "\n";
-   std::cerr << "maxLen " << maxLen << " meanLen " << (float)sumLen/_sn << "\n";
+   //std::cerr << "maxLen " << maxLen << " meanLen " << (float)sumLen/_sn << "\n";
    phrases.shrink_to_fit();
    std::string().swap(_x);
    std::cerr << headBoundaries.size() << ", " << ndoc << "\n";
@@ -1008,11 +1011,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
          MSGSA.push_back(std::make_pair(sStar.back().idx, sStar.back().doc));
          sStar.pop_back();
       }
-      if(bucketLengthStarChar[x-1]) {
-         sStar.resize(sStar.size());
-         //std::vector<SufSStar>(sStar).swap(sStar);
-         sStar.shrink_to_fit();
-      }
+      if(bucketLengthStarChar[x-1]) sStar.shrink_to_fit();
    }
 
    std::vector<SufSStar>().swap(sStar);
@@ -1023,8 +1022,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
 
    delete[] bucketLengthStarChar;
    
-   //uint32_t maskSign = 1 << 31;
-   //uint32_t maxNumber = (1 << 31) - 1;
+   uint32_t maskSign = 1 << 31;
+   uint32_t maxNumber = (1 << 31) - 1;
    std::cerr << "Start inducing L-types\n";
    data_type c1 = _sx[_sn-1];
    data_type c0;
@@ -1033,14 +1032,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    std::vector<std::pair<uint32_t, int32_t>>::iterator begGSA = MSGSA.begin();
    std::vector<std::pair<uint32_t, int32_t>>::iterator b = MSGSA.begin() + prefSumCharBkts[c1];
    *b++ = ((0 < _sn-1) && (_sx[_sn - 2] < c1)) ? std::pair<uint32_t, int32_t>(MSGSA[0].first, ~MSGSA[0].second) : MSGSA[0];
-   //std::deque<std::pair<uint32_t,int32_t>> bufferSuf;
-   
-   uint32_t sizeBuffer = 250000; //125000 = 1MB (32+32 bits for a single suffix)
-   //std::pair<uint32_t,int32_t> *bufferSuf = new std::pair<uint32_t,int32_t>[sizeBuffer];
-   uint32_t *bufferSuf = new uint32_t[sizeBuffer];
-   //bufferSuf.resize(sizeBuffer); 
    for(uint64_t i = 0; i < _sn; ++i){
-      //bufferSuf.push_back(MSGSA[i]);
       if(MSGSA[i].first > 0){
          j = MSGSA[i]; 
          //MSGSA[i].doc = (maxNumber > MSGSA[i].doc) ? MSGSA[i].doc | maskSign : MSGSA[i].doc & maxNumber;
@@ -1054,16 +1046,8 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
             *b++ = ((0 < j.first - 1) && (_sx[j.first + docBoundaries[j.second - 1] - 2] < c1)) ? std::pair<uint32_t, int32_t>(j.first - 1, ~j.second) : std::pair<uint32_t, int32_t>(j.first - 1, j.second);
          }
       }
-      // if(bufferSuf.size() == sizeBuffer){
-      //    ofp.write(reinterpret_cast<const char*>(&bufferSuf[0]), sizeof(std::pair<uint32_t, int32_t>)*sizeBuffer);
-      //    bufferSuf.clear();
-      // }
       //__builtin_prefetch(&_sx[MSGSA[i+1].idx + docBoundaries[MSGSA[i+1].doc - 1] - 1]);
    }
-   // if(bufferSuf.size()){
-   //    ofp.write(reinterpret_cast<const char*>(&bufferSuf[0]), sizeof(std::pair<uint32_t, int32_t>)*bufferSuf.size());
-   //    bufferSuf.clear();
-   // }
    std::cerr << "\nAfter inducing L-types\n";
    // if(verbose) for(size_t x = 0; x < _sn; x++) {
    //    if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
@@ -1075,19 +1059,7 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
    //    } 
    // }
    
-   std::ofstream create (outputFile, std::ios_base::binary | std::ios::out);
-   create.write("",1);
-   create.close();
-   std::ofstream ofp (outputFile, std::ios_base::binary | std::ios::out | std::ios::in | std::ios::ate);
-   if(!ofp){
-      std::cerr << "Output file not opened!\n";
-      exit(0);
-   }
-   ofp.seekp(sizeof(std::pair<uint32_t, int32_t>)*MSGSA.size()-1);
-   ofp.write("", 1);
-   ofp.seekp(sizeof(std::pair<uint32_t, int32_t>)*MSGSA.size());
    std::cerr << "Start inducing S-types\n";
-   int32_t back = sizeBuffer-1;
    b = MSGSA.begin() + prefSumCharBktsEnds[c1 = 0];
    for(uint64_t i = _sn - 1; i < _sn; i--){
       //if(verbose) std::cerr << "i: " << i << " " << j.idx << "," << j.doc << "\n";
@@ -1106,96 +1078,38 @@ int lzFactorize(char *fileToParse, int seqno, char* outputfilename, const bool v
       }
       //else if(maxNumber < MSGSA[i].doc) MSGSA[i].doc = MSGSA[i].doc & maxNumber;
       else if(0 > MSGSA[i].second) MSGSA[i].second = ~MSGSA[i].second;; //MSGSA[i].changeDocSign();
-      //bufferSuf.push_back(MSGSA[i]);
-      bufferSuf[back--] = MSGSA[i].first;
-      //bufferSuf.push_front(MSGSA[i]);
-      if(back == -1){
-      //if(bufferSuf.size() == sizeBuffer){
-         //uint64_t currentPos = ofp.tellp();
-         //ofp.seekp(currentPos-(sizeBuffer*sizeof(std::pair<uint32_t,int32_t>)));
-         //std::cerr << ofp.tellp() << "\n";
-         //std::reverse(bufferSuf.begin(), bufferSuf.end());
-         //ofp.seekp(i*sizeof(std::pair<uint32_t, int32_t>));
-
-         //ofp.seekp(-(sizeBuffer*sizeof(std::pair<uint32_t, int32_t>)), std::ios::cur);
-         ofp.seekp(-(sizeBuffer*sizeof(uint32_t)), std::ios::cur);
-         //std::cerr << ofp.tellp() << "\n";
-         //if(!ofp.write(reinterpret_cast<const char*>(bufferSuf), sizeof(std::pair<uint32_t, int32_t>)*sizeBuffer)){ 
-         if(!ofp.write(reinterpret_cast<const char*>(bufferSuf), sizeof(uint32_t)*sizeBuffer)){ 
-            std::cerr << "Writing gone bad\n";
-            exit(0);
-         }
-         //ofp.seekp(currentPos-(sizeBuffer*sizeof(std::pair<uint32_t,int32_t>)));
-         //bufferSuf.clear();
-         //std::cerr << "Size after clearing: " << bufferSuf.size() << "\n";
-         
-         //ofp.seekp(-(sizeBuffer*sizeof(std::pair<uint32_t, int32_t>)), std::ios::cur);         //std::cerr << ofp.tellp() << "\n";
-         ofp.seekp(-(sizeBuffer*sizeof(uint32_t)), std::ios::cur);
-         back = sizeBuffer-1;
-      }
       //__builtin_prefetch(&_sx[MSGSA[i-1].idx + docBoundaries[MSGSA[i-1].doc - 1] - 1]);
    }
-   std::cerr << "Before last buffer\n";
-   if(back != sizeBuffer-1){
-   //if(bufferSuf.size()){
-      // std::cerr << "last back size " << sizeBuffer-back << "\n";
-      // for(uint32_t i = back+1; i < sizeBuffer; i++){
-      //    std::cerr << "suf: " << bufferSuf[i].first << "," << bufferSuf[i].second << "\n";
-      // }
-      //std::cerr << "tellp before last buffer " << ofp.tellp() << "\n";
-      //std::cerr << "size of std::pair " << sizeof(std::pair<uint32_t, int32_t>) << "\n";
-      ofp.seekp(0);
-      //std::reverse(bufferSuf.begin(), bufferSuf.end());
-      //ofp.write(reinterpret_cast<const char*>(&bufferSuf[back+1]), sizeof(std::pair<uint32_t, int32_t>)*(sizeBuffer-back-1));
-      ofp.write(reinterpret_cast<const char*>(&bufferSuf[back+1]), sizeof(uint32_t)*(sizeBuffer-back-1));
-      
-      //ofp.write(reinterpret_cast<const char*>(&bufferSuf[0]), sizeof(std::pair<uint32_t, int32_t>)*(bufferSuf.size()));
-   }
-   ofp.close();
    std::cerr << "\nAfter inducing S-types\n";
    t2 = std::chrono::high_resolution_clock::now();
    uint64_t induceTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    std::cerr << "Induced in: " << induceTime << " milliseconds\n";
 
-   /* TEST IF WRITTEN FILE IS OK
-   std::ifstream fIn(outputFile, std::ios_base::binary | std::ios::in);
-   std::vector<std::pair<uint32_t, int32_t>> MSGSA_w;
-   MSGSA_w.reserve(MSGSA.size());
-   std::pair<uint32_t, int32_t> suf;
-   while(fIn.read(reinterpret_cast<char*>(&suf), sizeof(suf))){
-      MSGSA_w.push_back(suf);
-   }
-   uint32_t errs = 0;
-   for(uint64_t i = 0; i < MSGSA.size(); i++){
-      //std::cerr << MSGSA[i].first << "," << MSGSA[i].second << " \t" << MSGSA_w[i].first << "," << MSGSA_w[i].second << "\n";
-      if(MSGSA[i] != MSGSA_w[i]){
-         std::cerr << "i: " << i << " PROBLEM\n";
-         std::cerr << MSGSA[i].first << "," << MSGSA[i].second << " \t" << MSGSA_w[i].first << "," << MSGSA_w[i].second << "\n";
-         //exit(0);
-         errs++;
-      }
-   }
-   std::cerr << "errs: " << errs << "\n";
-   fIn.close();
-   */
    // if(verbose) for(size_t x = 0; x < _sn; x++) {
    //    if(MSGSA[x].doc == 0){std::cerr << "EMPTY\n"; continue;}
    //    std::cerr << MSGSA[x].idx << " " << MSGSA[x].doc << " " << _sx + MSGSA[x].idx + docBoundaries[MSGSA[x].doc - 1];
    // }
+   // std::fstream file;
+   // file.open(outputFile.c_str(), std::ios_base::out);
+   // std::ostream_iterator<Suf> outItr(file);
+   // std::copy(MSGSA.begin(), MSGSA.end(), outItr);
+   // file.close();
    
    // FILE *ofp;
    // ofp = fopen(outputFile.c_str(), "wb");
    // fwrite(MSGSA.data(), sizeof(std::pair<uint32_t, int32_t>), MSGSA.size(), ofp);
    // fclose(ofp);
 
+   // THIS ONE
    // t1 = std::chrono::high_resolution_clock::now();
    // std::ofstream ofp (outputFile, std::ios_base::binary);
    // ofp.write(reinterpret_cast<const char*>(&MSGSA[0]), sizeof(std::pair<uint32_t, int32_t>)*MSGSA.size());
+
    // ofp.close();
+   // // //fclose(ofp);
    // t2 = std::chrono::high_resolution_clock::now();
    // uint64_t writeTime = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
    // std::cerr << "Results written in: " << writeTime << " milliseconds\n";
-
    // int checkGSA = 0;
    // if(checkGSA){
    //    std::cerr << "Checking GSA\n"; 

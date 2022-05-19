@@ -4,3 +4,7 @@
 [submodule "matching_statistics/gsa-is"]
 	path = matching_statistics/gsa-is
 	url = https://github.com/felipelouza/gsa-is
+[submodule "matching_statistics/inplace-radixxx"]
+	path = matching_statistics/inplace-radixxx
+	url = https://github.com/pepshiso/inplace-radixxx
+
